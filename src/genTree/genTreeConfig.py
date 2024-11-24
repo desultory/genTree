@@ -40,7 +40,6 @@ class GenTreeConfig:
     def __post_init__(self, *args, **kwargs):
         # If _branch is set, we are creating a branch, load kwargs under the config file
         if getattr(self, "parent"):
-            self.logger.error("Parent config: %s", self.parent)
             self.inherit_parent()
             self.load_config(self.config_file)
         else:

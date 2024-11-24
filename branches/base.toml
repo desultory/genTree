@@ -1,6 +1,0 @@
-root = "./base_root"
-
-bases = [
-"branches/glibc.toml",
-"branches/tini.toml",
-]

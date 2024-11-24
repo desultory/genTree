@@ -1,6 +1,5 @@
 from os import environ
 from pathlib import Path
-from shutil import copytree, rmtree
 from tomllib import load
 from typing import Optional
 
@@ -13,6 +12,7 @@ ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
 
 INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean", "root", "config_root"]
+
 
 @validatedDataclass
 class GenTreeConfig:
@@ -56,8 +56,7 @@ class GenTreeConfig:
         base = Path(base)
         if base.suffix != ".toml":
             raise ValueError(f"Base file must be a toml file: {base}")
-        self.bases.append(GenTreeConfig(**self.generate_branch_base(base)), )
-
+        self.bases.append(GenTreeConfig(**self.generate_branch_base(base)))
 
     @handle_plural
     def add_branch(self, branch: Path):
@@ -74,7 +73,7 @@ class GenTreeConfig:
         return {"logger": self.logger, "config_file": branch_config, "parent": self}
 
     def inherit_parent(self):
-        """ Inherits config from the parent object"""
+        """Inherits config from the parent object"""
         for attr in INHERITED_CONFIG:
             setattr(self, attr, getattr(self.parent, attr))
 
@@ -110,7 +109,7 @@ class GenTreeConfig:
             setattr(self, key, value)
 
     def load_use(self):
-        """ Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""
+        """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""
         if inherit_use := self.config.get("inherit_use"):
             self.inherit_use = inherit_use
         parent_use = getattr(self.parent, "use") if self.inherit_use else set()
@@ -139,25 +138,6 @@ class GenTreeConfig:
                 else:
                     raise FileNotFoundError(f"Directory does not exist: {path}")
 
-    def prepare_build(self):
-        """Prepares the build environment"""
-        if self.clean:
-            if self.root.exists():
-                self.logger.warning(f"Cleaning root: {self.root.resolve()}")
-                rmtree(self.root, ignore_errors=True)
-
-        if bases := getattr(self, "bases"):
-            for base in bases:
-                self.logger.info("Copying base root to current root: %s -> %s", base.root.resolve(), self.root.resolve())
-                copytree(base.root.resolve(), self.root.resolve(), dirs_exist_ok=True)
-
-        if parent := getattr(self, "parent"):
-            if self.copy_parent:
-                self.logger.info("Copying parent root to current root: %s -> %s", parent.root.resolve(), self.root.resolve())
-                copytree(parent.root.resolve(), self.root.resolve())
-        self.check_dir("root")
-        self.check_dir("config_root", create=False)
-
     def get_emerge_args(self):
         """Gets emerge args for the current config"""
         args = ["--root", str(self.root.resolve())]
@@ -184,4 +164,3 @@ class GenTreeConfig:
         out_dict.pop("parent", None)
         out_dict.pop("branches", None)
         return pretty_print(out_dict)
-

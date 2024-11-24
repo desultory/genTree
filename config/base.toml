@@ -1,0 +1,6 @@
+root = "./base_root"
+
+bases = [
+"config/glibc.toml",
+"config/tini.toml",
+]

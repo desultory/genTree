@@ -1,12 +1,8 @@
 root = "./build_root"
 #config_root = "./config_root"
 
-#use = "asdf flag"
+packages = ["baselayout"]
 
-bases = [
-"branches/base.toml",
-]
+bases = ["config/base.toml",]
 
-branches = [
-"branches/nginx.toml",
-]
+branches = ["config/nginx.toml",]

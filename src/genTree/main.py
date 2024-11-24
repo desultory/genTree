@@ -22,4 +22,4 @@ def main():
         package=__package__, description="Generates filesystem trees with portage.", arguments=arguments
     )
     genTree = GenTree(**kwargs)
-    genTree.build()
+    genTree.build_tree()

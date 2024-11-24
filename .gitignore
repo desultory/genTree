@@ -6,3 +6,7 @@ __pycache__/*
 config.toml
 build/*
 *.egg-info/
+build_root/*
+pkgdir/*
+portage_tmpdir/*
+config_root/*

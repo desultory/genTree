@@ -1,24 +1,24 @@
 from pathlib import Path
 from tomllib import load
 
-from zenlib.util import handle_plural
 from zenlib.types import validatedDataclass
+from zenlib.util import handle_plural
 
 
 @validatedDataclass
 class GenTreeConfig:
-    branches: dict
-    required_config = ["root"]
+    required_config = ["root", "emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
     config_file: Path = None
+    # Environment variables
     emerge_log_dir: Path = "emerge_logs"
     portage_logdir: Path = "portage_logs"
+    pkgdir: Path = "pkgdir"
+    portage_tmpdir: Path = "portage_tmpdir"
     branches: dict = None
     config: dict = None
     root: Path = None
     config_root: Path = None
     packages: list = None
-    pkgdir: Path = None
-    portage_tmpdir: Path = None
     _branch: bool = False
 
     def __post_init__(self, *args, **kwargs):
@@ -34,7 +34,7 @@ class GenTreeConfig:
 
     @handle_plural
     def add_branch(self, branch: Path):
-        """ Adds a branch to the config
+        """Adds a branch to the config
         A branch is a config file which inherits config from the parent config file
         """
         branch = Path(branch)
@@ -47,7 +47,6 @@ class GenTreeConfig:
 
         self.logger.debug("Adding branch: %s", branch_name)
         self.branches[branch_name] = GenTreeConfig(**self.generate_branch_base(branch))
-
 
     def process_kwargs(self, kwargs):
         """Process kwargs to set config values"""

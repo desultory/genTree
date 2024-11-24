@@ -15,14 +15,14 @@ class GenTree:
         """Builds the bases for the current config"""
         if bases := config.bases:
             for base in bases:
-                self.logger.info(f"[{config.config_file}] Building base: {base.config_file}")
+                base.logger.info(f"[{config.config_file}] Building base: {base.config_file}")
                 self.build(config=base)
 
     def build_branches(self, config):
         """Builds the branches under the current branch"""
         if branches := config.branches:
             for branch in branches:
-                self.logger.info(f"[{config.config_file}] Building branch: {branch.config_file}")
+                branch.logger.info(f"[{config.config_file}] Building branch: {branch.config_file}")
                 self.build(config=branch)
 
     def prepare_build(self, config):
@@ -51,6 +51,16 @@ class GenTree:
         config.check_dir("root")
         config.check_dir("config_root", create=False)
 
+    def run_emerge(self, args):
+        """Runs the emerge command with the passed args"""
+        self.logger.debug("Running emerge with args: " + " ".join(args))
+        ret = run(["emerge", *args], capture_output=True)
+        if ret.returncode:
+            self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
+            raise RuntimeError(f"Failed to run emerge with args: {args}\n{ret.stdout.decode()}\n{ret.stderr.decode()}")
+
+        return ret
+
     def perform_emerge(self, config):
         """Performs the emerge command for the current config"""
         if not getattr(config, "packages", None):
@@ -60,15 +70,10 @@ class GenTree:
 
         emerge_args = config.get_emerge_args()
         config.set_portage_env()
-        config.logger.debug(f"[{config.config_file}] Emerge args: {emerge_args}")
-        ret = run(["emerge", *emerge_args], capture_output=True)
-        if ret.returncode:
-            config.logger.error(f"Config: {config}")
-            emerge_info = run(["emerge", "--info"], capture_output=True)
-            config.logger.info(f"Emerge info:\n{emerge_info.stdout.decode()}")
-            raise RuntimeError(
-                f"Failed to run emerge with args: {emerge_args}\n{ret.stdout.decode()}\n{ret.stderr.decode()}"
-            )
+        self.run_emerge(emerge_args)
+
+        if config.depclean:
+            self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"])
         config.built = True
 
     def build(self, config):

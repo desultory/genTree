@@ -21,6 +21,7 @@ class GenTreeConfig:
     parent: Optional["GenTreeConfig"] = None
     bases: list = None
     branches: list = None
+    depclean: bool = True  # runs emerge --depclean --with-bdeps=n after pulling packages
     built: bool = False  # Set to true if the config has completed an emerge
     copy_parent: bool = False
     config: dict = None
@@ -163,4 +164,5 @@ class GenTreeConfig:
         out_dict = {attr: getattr(self, attr) for attr in self.__dataclass_fields__}
         out_dict.pop("parent", None)
         out_dict.pop("branches", None)
+        out_dict.pop("bases", None)
         return pretty_print(out_dict)

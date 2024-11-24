@@ -1,3 +1,6 @@
+root = "./base_root"
+copy_branches = true
+
 branches = [
 "branches/glibc.toml",
 "branches/tini.toml",

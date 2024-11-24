@@ -1,6 +1,8 @@
 from pathlib import Path
 from tomllib import load
 from os import environ
+from shutil import copytree, rmtree
+from typing import Optional
 
 from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural
@@ -12,6 +14,9 @@ ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 class GenTreeConfig:
     required_config = ["root", "emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
     config_file: Path = None
+    parent: Optional["GenTreeConfig"] = None
+    copy_parent: bool = False
+    copy_branches: bool = False
     # Environment variables
     emerge_log_dir: Path = "emerge_logs"
     portage_logdir: Path = "portage_logs"
@@ -22,12 +27,11 @@ class GenTreeConfig:
     root: Path = None
     config_root: Path = None
     packages: list = None
-    _branch: bool = False
+    clean: bool = True
 
     def __post_init__(self, *args, **kwargs):
-        print(GenTreeConfig.branches)
         # If _branch is set, we are creating a branch, load kwargs under the config file
-        if kwargs.pop("_branch", False):
+        if getattr(self, "parent"):
             self.process_kwargs(kwargs)
             self.load_config(self.config_file)
         else:
@@ -98,6 +102,15 @@ class GenTreeConfig:
 
     def prepare_build(self):
         """Prepares the build environment"""
+        if self.clean:
+            if self.root.exists():
+                self.logger.warning(f"Cleaning root: {self.root.resolve()}")
+                rmtree(self.root, ignore_errors=True)
+
+        if parent := getattr(self, "parent"):
+            if self.copy_parent:
+                self.logger.info("Copying parent root to current root: %s -> %s", parent.root, self.root)
+                copytree(parent.root, self.root)
         self.check_dir("root")
         self.check_dir("config_root", create=False)
 
@@ -124,6 +137,5 @@ class GenTreeConfig:
         config.pop("branches")
         config.pop("config")
         config["config_file"] = branch_config
-        config["_branch"] = True
-        self.logger.warning("Branch base config: %s", config)
+        config["parent"] = self
         return config

@@ -1,3 +1,5 @@
+root = "./tini_root"
+
 packages = [
 "sys-process/tini"
 ]

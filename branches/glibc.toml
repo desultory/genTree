@@ -1,1 +1,3 @@
+root = "./glibc_root"
+
 packages = ["sys-libs/glibc"]

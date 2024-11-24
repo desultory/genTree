@@ -33,7 +33,12 @@ class GenTree:
         emerge_args = config.get_emerge_args()
         config.set_portage_env()
         self.logger.debug(f"Emerge args: {emerge_args}")
-        run(["emerge", *emerge_args])
+        ret = run(["emerge", *emerge_args], capture_output=True)
+        if ret.returncode:
+            self.logger.error(f"Config: {config}")
+            emerge_info = run(["emerge", "--info"], capture_output=True)
+            self.logger.info(f"Emerge info:\n{emerge_info.stdout.decode()}")
+            raise RuntimeError(f"Failed to run emerge with args: {emerge_args}\n{ret.stderr.decode()}")
 
     def build(self, config=None):
         """Builds the tree"""

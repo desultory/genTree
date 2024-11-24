@@ -1,9 +1,12 @@
 from pathlib import Path
 from tomllib import load
+from os import environ
 
 from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural
 
+
+ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 
 @validatedDataclass
 class GenTreeConfig:
@@ -79,6 +82,41 @@ class GenTreeConfig:
         for key in self.required_config:
             if not getattr(self, key):
                 raise ValueError(f"Missing required config: {key}")
+
+    @handle_plural
+    def check_dir(self, dirname, create=True):
+        """Checks if a directory exists,
+        if create is True, creates it if it doesn't exist
+        otherwise raises FileNotFoundError"""
+        if dirname := getattr(self, dirname):
+            path = Path(dirname)
+            if not path.exists():
+                if create:
+                    path.mkdir(parents=True)
+                else:
+                    raise FileNotFoundError(f"Directory does not exist: {path}")
+
+    def prepare_build(self):
+        """Prepares the build environment"""
+        self.check_dir("root")
+        self.check_dir("config_root", create=False)
+
+    def get_emerge_args(self):
+        """ Gets emerge args for the current config """
+        args = ["--root", str(self.root.resolve())]
+        if config_root := self.config_root:
+            args.extend(["--config-root", str(config_root.resolve())])
+        args += [*self.packages]
+        return args
+
+    def set_portage_env(self):
+        """ Sets portage environment variables based on the config """
+        for env_dir in ENV_VAR_DIRS:
+            self.check_dir(env_dir)
+            env_name = env_dir.upper()
+            env_path = getattr(self, env_dir).resolve()
+            self.logger.debug("Setting environment variable: %s=%s", env_name, env_path)
+            environ[env_name] = str(env_path)
 
     def generate_branch_base(self, branch_config: Path):
         """Returns a dict of the base config for a branch"""

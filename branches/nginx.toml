@@ -1,0 +1,3 @@
+root = "./nginx_root"
+
+packages = ["www-servers/nginx"]

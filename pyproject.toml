@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "genTree"
+version = "0.0.1"
+authors = [
+  { name="Desultory", email="dev@pyl.onl" },
+]
+description = "Generates filesystem trees using portage."
+readme = "readme.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "zenlib >= 3.0.0",
+    "portage >= 3.0.52"
+]
+
+[project.scripts]
+genTree = "genTree.main:main"
+
+[project.urls]
+Homepage = "https://github.com/desultory/genTree"
+Issues = "https://github.com/desultory/genTree/issues"

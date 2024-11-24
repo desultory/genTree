@@ -11,21 +11,24 @@ class GenTree:
     def __init__(self, config_file="config.toml", *args, **kwargs):
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
 
+    def build_bases(self, config):
+        """ Builds the bases for the current config"""
+        if bases := config.bases:
+            for base in bases:
+                self.logger.info(f"Building base: {base}")
+                self.build_config(config=base)
+
     def build_branches(self, config):
         """Builds the branches under the current branch"""
         if branches := config.branches:
-            for branch_name, branch_config in branches.items():
-                self.logger.info(f"Building branch: {branch_name}")
-                self.build_branch(config=branch_config)
-                if branch_config.copy_branches:
-                    self.logger.info(
-                        f"Copying branch root to parent root: {branch_config.root.resolve()} -> {config.root.resolve()}"
-                    )
-                    copytree(branch_config.root, config.root, dirs_exist_ok=True)
+            for branch in branches:
+                self.logger.info(f"Building branch: {branch}")
+                self.build_config(config=branch)
 
-    def build_branch(self, config=None):
-        """Builds all branches under the current branch
-        Then builds the branch itself."""
+    def build_config(self, config):
+        """Builds all bases and branches under the current config
+        Then builds the packages in the config"""
+        self.build_bases(config=config)
         config.prepare_build()
         self.build_branches(config=config)
         if not getattr(config, "packages", None):
@@ -38,10 +41,11 @@ class GenTree:
             self.logger.error(f"Config: {config}")
             emerge_info = run(["emerge", "--info"], capture_output=True)
             self.logger.info(f"Emerge info:\n{emerge_info.stdout.decode()}")
-            raise RuntimeError(f"Failed to run emerge with args: {emerge_args}\n{ret.stderr.decode()}")
+            raise RuntimeError(f"Failed to run emerge with args: {emerge_args}\n{ret.stdout.decode()}\n{ret.stderr.decode()}")
+        config.built = True
 
     def build(self, config=None):
         """Builds the tree"""
         config = config or self.config
         self.logger.info(f"Building tree at: {config.root.resolve()}")
-        self.build_branch(config=config)
+        self.build_config(config=config)

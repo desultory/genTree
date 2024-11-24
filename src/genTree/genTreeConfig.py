@@ -16,12 +16,13 @@ INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean", "root", "config_root"]
 
 @validatedDataclass
 class GenTreeConfig:
-    required_config = ["root", "emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
+    required_config = ["root", *ENV_VAR_DIRS]
     config_file: Path = None
     parent: Optional["GenTreeConfig"] = None
-    branches: dict = None
+    bases: list = None
+    branches: list = None
+    built: bool = False  # Set to true if the config has completed an emerge
     copy_parent: bool = False
-    copy_branches: bool = False
     config: dict = None
     packages: list = None
     clean: bool = True
@@ -48,6 +49,17 @@ class GenTreeConfig:
         self.validate_config()
 
     @handle_plural
+    def add_base(self, base: Path):
+        """Adds a base config to the config
+        A base is a config which is used as an image base for the current config
+        """
+        base = Path(base)
+        if base.suffix != ".toml":
+            raise ValueError(f"Base file must be a toml file: {base}")
+        self.bases.append(GenTreeConfig(**self.generate_branch_base(base)), )
+
+
+    @handle_plural
     def add_branch(self, branch: Path):
         """Adds a branch to the config
         A branch is a config file which inherits config from the parent config file
@@ -55,13 +67,7 @@ class GenTreeConfig:
         branch = Path(branch)
         if branch.suffix != ".toml":
             raise ValueError(f"Branch file must be a toml file: {branch}")
-
-        branch_name = branch.stem
-        if branch_name in self.branches:
-            raise ValueError(f"Branch already exists: {branch_name}")
-
-        self.logger.debug("Adding branch: %s", branch_name)
-        self.branches[branch_name] = GenTreeConfig(**self.generate_branch_base(branch))
+        self.branches.append(GenTreeConfig(**self.generate_branch_base(branch), copy_parent=True))
 
     def generate_branch_base(self, branch_config: Path):
         """Returns a dict of the base config for a branch"""
@@ -91,9 +97,14 @@ class GenTreeConfig:
         for key, value in self.config.items():
             if key in ["logger", "use", "inherit_use"]:
                 continue
-            if key == "branches":
+            elif key == "bases":
+                if not getattr(self, "bases"):
+                    self.bases = []
+                self.add_base(value)
+                continue
+            elif key == "branches":
                 if not getattr(self, "branches"):
-                    self.branches = {}
+                    self.branches = []
                 self.add_branch(value)
                 continue
             setattr(self, key, value)
@@ -135,10 +146,15 @@ class GenTreeConfig:
                 self.logger.warning(f"Cleaning root: {self.root.resolve()}")
                 rmtree(self.root, ignore_errors=True)
 
+        if bases := getattr(self, "bases"):
+            for base in bases:
+                self.logger.info("Copying base root to current root: %s -> %s", base.root.resolve(), self.root.resolve())
+                copytree(base.root.resolve(), self.root.resolve(), dirs_exist_ok=True)
+
         if parent := getattr(self, "parent"):
             if self.copy_parent:
-                self.logger.info("Copying parent root to current root: %s -> %s", parent.root, self.root)
-                copytree(parent.root, self.root)
+                self.logger.info("Copying parent root to current root: %s -> %s", parent.root.resolve(), self.root.resolve())
+                copytree(parent.root.resolve(), self.root.resolve())
         self.check_dir("root")
         self.check_dir("config_root", create=False)
 

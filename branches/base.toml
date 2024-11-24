@@ -1,7 +1,6 @@
 root = "./base_root"
-copy_branches = true
 
-branches = [
+bases = [
 "branches/glibc.toml",
 "branches/tini.toml",
 ]

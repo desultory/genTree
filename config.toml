@@ -1,10 +1,12 @@
 root = "./build_root"
 #config_root = "./config_root"
-copy_branches = true
 
 #use = "asdf flag"
 
-branches = [
+bases = [
 "branches/base.toml",
+]
+
+branches = [
 "branches/nginx.toml",
 ]

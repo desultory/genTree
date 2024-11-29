@@ -11,21 +11,23 @@ from .use_flags import UseFlags
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
 
-INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean", "root", "config_root"]
+INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean", "layer_dir", "base_build_dir", "config_root"]
 
 
 @validatedDataclass
 class GenTreeConfig:
-    required_config = ["root", *ENV_VAR_DIRS]
-    config_file: Path = None
+    required_config = ["name", *ENV_VAR_DIRS]
+    name: str = None  # The name of the config layer
+    config_file: Path = None  # Path to the config file
     parent: Optional["GenTreeConfig"] = None
-    bases: list = None
+    bases: list = None  # List of base layer configs
     depclean: bool = True  # runs emerge --depclean --with-bdeps=n after pulling packages
-    built: bool = False  # Set to true if the config has completed an emerge
-    config: dict = None
-    packages: list = None
-    clean: bool = True
+    config: dict = None  # The config dictionary
+    packages: list = None  # List of packages to install on the layer
+    clean: bool = True  # Cleans the layer build dir before copying base layers
     inherit_use: bool = False  # Inherit USE flags from the parent
+    layer_dir: Path = "/var/lib/genTree/layers"
+    base_build_dir: Path = "/var/lib/genTree/builds"
     # Environment variable directories
     emerge_log_dir: Path = "/var/lib/genTree/emerge_logs"
     portage_logdir: Path = "/var/lib/genTree/portage_logs"
@@ -34,7 +36,6 @@ class GenTreeConfig:
     # Other environment variables
     use: UseFlags = None
     # portage args
-    root: Path = None
     config_root: Path = None
 
     def __post_init__(self, *args, **kwargs):
@@ -46,6 +47,10 @@ class GenTreeConfig:
             self.load_config(self.config_file or kwargs.get("config_file"))
             self.process_kwargs(kwargs)
         self.validate_config()
+
+    @property
+    def root(self):
+        return self.base_build_dir.resolve() / self.name
 
     @handle_plural
     def add_base(self, base: Path):
@@ -120,7 +125,7 @@ class GenTreeConfig:
 
     def get_emerge_args(self):
         """Gets emerge args for the current config"""
-        args = ["--root", str(self.root.resolve())]
+        args = ["--root", str(self.root)]
         if config_root := self.config_root:
             args.extend(["--config-root", str(config_root.resolve())])
         args += [*self.packages]

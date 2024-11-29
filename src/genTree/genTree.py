@@ -25,15 +25,16 @@ class GenTree:
 
         if config.clean:
             if config.root.exists():
-                config.logger.warning(f"[{config.config_file}] Cleaning root: {config.root.resolve()}")
+                config.logger.warning(f"[{config.name}] Cleaning root: {config.root}")
                 rmtree(config.root, ignore_errors=True)
 
         if bases := getattr(config, "bases"):
             for base in bases:
                 config.logger.info(
-                    f"[{config.config_file}] Copying base root to build root: {base.root.resolve()} -> {config.root.resolve()}"
+                    f"[{config.name}] Copying base root to build root: {base.root} -> {config.root}"
                 )
-                copytree(base.root.resolve(), config.root.resolve(), dirs_exist_ok=True, symlinks=True)
+                raise NotImplementedError("base unpacking is not implemented yet")
+                copytree(base.root, config.root, dirs_exist_ok=True, symlinks=True)
 
         config.check_dir("root")
         config.check_dir("config_root", create=False)
@@ -61,7 +62,6 @@ class GenTree:
 
         if config.depclean:
             self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"])
-        config.built = True
 
     def build(self, config):
         """Builds all bases and branches under the current config
@@ -69,8 +69,18 @@ class GenTree:
         self.build_bases(config=config)
         self.prepare_build(config=config)
         self.perform_emerge(config=config)
+        self.pack(config=config)
+
+    def pack(self, config):
+        """Packs the built tree into {name}.tar.xz"""
+        from tarfile import TarFile
+        archive = config.layer_dir / f"{config.name}.tar.xz"
+        self.logger.info(f"[{config.root}] Packing tree to: {archive}")
+        with TarFile.open(archive, "w:xz") as tar:
+            for file in config.root.rglob("*"):
+                tar.add(file, arcname=file.relative_to(config.root))
 
     def build_tree(self):
         """Builds the tree"""
-        self.logger.info(f"Building tree from: {self.config.config_file}")
+        self.logger.info(f"[{self.config.name}] Building tree at: {self.config.root}")
         self.build(config=self.config)

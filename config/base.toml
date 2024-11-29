@@ -1,6 +1,8 @@
-root = "./base_root"
+name = "tini_base"
 
 bases = [
 "config/glibc.toml",
 "config/tini.toml",
 ]
+
+packages = ["baselayout"]

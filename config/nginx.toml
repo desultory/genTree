@@ -1,4 +1,4 @@
-root = "./nginx_root"
+name = "nginx"
 
 #inherit_use = true
 use = "nginx"

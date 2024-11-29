@@ -1,7 +1,5 @@
-root = "./build_root"
+name = "nginx"
 #config_root = "./config_root"
-
-packages = ["baselayout"]
 
 bases = [
 "config/base.toml",

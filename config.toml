@@ -3,6 +3,7 @@ root = "./build_root"
 
 packages = ["baselayout"]
 
-bases = ["config/base.toml",]
-
-branches = ["config/nginx.toml",]
+bases = [
+"config/base.toml",
+"config/nginx.toml"
+]

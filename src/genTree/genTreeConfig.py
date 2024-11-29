@@ -20,10 +20,8 @@ class GenTreeConfig:
     config_file: Path = None
     parent: Optional["GenTreeConfig"] = None
     bases: list = None
-    branches: list = None
     depclean: bool = True  # runs emerge --depclean --with-bdeps=n after pulling packages
     built: bool = False  # Set to true if the config has completed an emerge
-    copy_parent: bool = False
     config: dict = None
     packages: list = None
     clean: bool = True
@@ -57,21 +55,7 @@ class GenTreeConfig:
         base = Path(base)
         if base.suffix != ".toml":
             raise ValueError(f"Base file must be a toml file: {base}")
-        self.bases.append(GenTreeConfig(**self.generate_branch_base(base)))
-
-    @handle_plural
-    def add_branch(self, branch: Path):
-        """Adds a branch to the config
-        A branch is a config file which inherits config from the parent config file
-        """
-        branch = Path(branch)
-        if branch.suffix != ".toml":
-            raise ValueError(f"Branch file must be a toml file: {branch}")
-        self.branches.append(GenTreeConfig(**self.generate_branch_base(branch), copy_parent=True))
-
-    def generate_branch_base(self, branch_config: Path):
-        """Returns a dict of the base config for a branch"""
-        return {"logger": self.logger, "config_file": branch_config, "parent": self}
+        self.bases.append(GenTreeConfig(logger=self.logger, config_file=base, parent=self))
 
     def inherit_parent(self):
         """Inherits config from the parent object"""
@@ -101,11 +85,6 @@ class GenTreeConfig:
                 if not getattr(self, "bases"):
                     self.bases = []
                 self.add_base(value)
-                continue
-            elif key == "branches":
-                if not getattr(self, "branches"):
-                    self.branches = []
-                self.add_branch(value)
                 continue
             setattr(self, key, value)
 
@@ -163,6 +142,5 @@ class GenTreeConfig:
     def __str__(self):
         out_dict = {attr: getattr(self, attr) for attr in self.__dataclass_fields__}
         out_dict.pop("parent", None)
-        out_dict.pop("branches", None)
         out_dict.pop("bases", None)
         return pretty_print(out_dict)

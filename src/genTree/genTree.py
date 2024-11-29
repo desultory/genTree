@@ -18,13 +18,6 @@ class GenTree:
                 base.logger.info(f"[{config.config_file}] Building base: {base.config_file}")
                 self.build(config=base)
 
-    def build_branches(self, config):
-        """Builds the branches under the current branch"""
-        if branches := config.branches:
-            for branch in branches:
-                branch.logger.info(f"[{config.config_file}] Building branch: {branch.config_file}")
-                self.build(config=branch)
-
     def prepare_build(self, config):
         """Prepares the build environment for the passed config"""
         if str(config.root) == "/":
@@ -42,12 +35,6 @@ class GenTree:
                 )
                 copytree(base.root.resolve(), config.root.resolve(), dirs_exist_ok=True, symlinks=True)
 
-        if parent := getattr(config, "parent"):
-            if config.copy_parent:
-                config.logger.info(
-                    f"[{config.config_file}] Copying parent root to branch root: {parent.root.resolve()} -> {config.root.resolve()}"
-                )
-                copytree(parent.root.resolve(), config.root.resolve(), dirs_exist_ok=True, symlinks=True)
         config.check_dir("root")
         config.check_dir("config_root", create=False)
 
@@ -82,7 +69,6 @@ class GenTree:
         self.build_bases(config=config)
         self.prepare_build(config=config)
         self.perform_emerge(config=config)
-        self.build_branches(config=config)
 
     def build_tree(self):
         """Builds the tree"""

@@ -27,10 +27,10 @@ class GenTreeConfig:
     clean: bool = True
     inherit_use: bool = False  # Inherit USE flags from the parent
     # Environment variable directories
-    emerge_log_dir: Path = "emerge_logs"
-    portage_logdir: Path = "portage_logs"
-    pkgdir: Path = "pkgdir"
-    portage_tmpdir: Path = "portage_tmpdir"
+    emerge_log_dir: Path = "/var/lib/genTree/emerge_logs"
+    portage_logdir: Path = "/var/lib/genTree/portage_logs"
+    pkgdir: Path = "/var/lib/genTree/pkgdir"
+    portage_tmpdir: Path = "/var/lib/genTree/portage_tmpdir"
     # Other environment variables
     use: UseFlags = None
     # portage args

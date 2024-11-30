@@ -11,7 +11,7 @@ from .use_flags import UseFlags
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
 
-INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean", "layer_dir", "base_build_dir", "config_root"]
+INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
 
 
 @validatedDataclass
@@ -24,9 +24,11 @@ class GenTreeConfig:
     depclean: bool = True  # runs emerge --depclean --with-bdeps=n after pulling packages
     config: dict = None  # The config dictionary
     packages: list = None  # List of packages to install on the layer
-    clean: bool = True  # Cleans the layer build dir before copying base layers
+    clean_build: bool = True  # Cleans the layer build dir before copying base layers
+    rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent
     layer_dir: Path = "/var/lib/genTree/layers"
+    archive_extension: str = ".tar"
     base_build_dir: Path = "/var/lib/genTree/builds"
     # Environment variable directories
     emerge_log_dir: Path = "/var/lib/genTree/emerge_logs"
@@ -51,6 +53,10 @@ class GenTreeConfig:
     @property
     def root(self):
         return self.base_build_dir.resolve() / self.name
+
+    @property
+    def layer_archive(self):
+        return (self.layer_dir.resolve() / self.name).with_suffix(self.archive_extension)
 
     @handle_plural
     def add_base(self, base: Path):

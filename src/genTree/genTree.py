@@ -9,13 +9,18 @@ from .genTreeConfig import GenTreeConfig
 
 def preserve_world(func):
     """Preserves the world file of the config before running the function"""
+    def get_world_set(config):
+        """returns a set containing world entries under the root of the supplied config"""
+        with open(config.root / "var/lib/portage/world") as world:
+            return set(world.read().splitlines())
+
     def wrapper(self, config, *args, **kwargs):
         try:
-            world = self._get_world_set(config)
+            world = get_world_set(config)
         except FileNotFoundError:
             world = set()
         ret = func(self, config, *args, **kwargs)
-        new_world = self._get_world_set(config)
+        new_world = get_world_set(config)
         for entry in world:
             if entry not in new_world:
                 config.logger.info(f"[{config.name}] Adding {entry} to world file")
@@ -43,25 +48,18 @@ class GenTree:
         if str(config.root) == "/":
             raise RuntimeError("Cannot build in root directory.")
 
-        if config.clean:
-            if config.root.exists():
-                config.logger.warning(f"[{config.name}] Cleaning root: {config.root}")
-                rmtree(config.root, ignore_errors=True)
+        if config.root.exists() and config.clean_build:
+            config.logger.warning(f"[{config.name}] Cleaning root: {config.root}")
+            rmtree(config.root, ignore_errors=True)
 
         config.check_dir("root")
         config.check_dir("config_root", create=False)
-
-    def _get_world_set(self, config):
-        """returns a set containing world entries under the root of the supplied config"""
-        with open(config.root / "var/lib/portage/world") as world:
-            return set(world.read().splitlines())
 
     @preserve_world
     def deploy_base(self, config, base):
         """Deploys a base over the config root"""
         config.logger.info(f"[{base.name}] Unpacking base layer to build root: {config.root}")
-        archive = base.layer_dir / f"{base.name}.tar"
-        with TarFile.open(archive, "r") as tar:
+        with TarFile.open(base.layer_archive, "r") as tar:
             tar.extractall(config.root)
 
     def deploy_bases(self, config):
@@ -99,6 +97,9 @@ class GenTree:
     def build(self, config):
         """Builds all bases and branches under the current config
         Then builds the packages in the config"""
+        if config.layer_archive.exists() and not config.rebuild:
+            return config.logger.warning(f"[{config.name}] Skipping build, layer archive exists")
+
         self.build_bases(config=config)
         self.prepare_build(config=config)
         self.deploy_bases(config=config)
@@ -106,10 +107,9 @@ class GenTree:
         self.pack(config=config)
 
     def pack(self, config):
-        """Packs the built tree into {name}.tar.xz"""
-        archive = config.layer_dir / f"{config.name}.tar"
-        self.logger.info(f"[{config.root}] Packing tree to: {archive}")
-        with TarFile.open(archive, "w") as tar:
+        """Packs the built tree into {config.layer_archive}"""
+        self.logger.info(f"[{config.root}] Packing tree to: {config.layer_archive}")
+        with TarFile.open(config.layer_archive, "w") as tar:
             for file in config.root.rglob("*"):
                 tar.add(file, arcname=file.relative_to(config.root))
 

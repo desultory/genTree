@@ -1,9 +1,29 @@
-from shutil import copytree, rmtree
+from shutil import rmtree
 from subprocess import run
+from tarfile import TarFile
 
 from zenlib.logging import loggify
 
 from .genTreeConfig import GenTreeConfig
+
+
+def preserve_world(func):
+    """Preserves the world file of the config before running the function"""
+    def wrapper(self, config, *args, **kwargs):
+        try:
+            world = self._get_world_set(config)
+        except FileNotFoundError:
+            world = set()
+        ret = func(self, config, *args, **kwargs)
+        new_world = self._get_world_set(config)
+        for entry in world:
+            if entry not in new_world:
+                config.logger.info(f"[{config.name}] Adding {entry} to world file")
+                with open(config.root / "var/lib/portage/world", "a") as world:
+                    world.write(entry + "\n")
+        return ret
+
+    return wrapper
 
 
 @loggify
@@ -15,7 +35,7 @@ class GenTree:
         """Builds the bases for the current config"""
         if bases := config.bases:
             for base in bases:
-                base.logger.info(f"[{config.config_file}] Building base: {base.config_file}")
+                base.logger.info(f"[{config.config_file}] Building base: {base.name}")
                 self.build(config=base)
 
     def prepare_build(self, config):
@@ -28,20 +48,33 @@ class GenTree:
                 config.logger.warning(f"[{config.name}] Cleaning root: {config.root}")
                 rmtree(config.root, ignore_errors=True)
 
-        if bases := getattr(config, "bases"):
-            for base in bases:
-                config.logger.info(
-                    f"[{config.name}] Copying base root to build root: {base.root} -> {config.root}"
-                )
-                raise NotImplementedError("base unpacking is not implemented yet")
-                copytree(base.root, config.root, dirs_exist_ok=True, symlinks=True)
-
         config.check_dir("root")
         config.check_dir("config_root", create=False)
 
+    def _get_world_set(self, config):
+        """returns a set containing world entries under the root of the supplied config"""
+        with open(config.root / "var/lib/portage/world") as world:
+            return set(world.read().splitlines())
+
+    @preserve_world
+    def deploy_base(self, config, base):
+        """Deploys a base over the config root"""
+        config.logger.info(f"[{base.name}] Unpacking base layer to build root: {config.root}")
+        archive = base.layer_dir / f"{base.name}.tar"
+        with TarFile.open(archive, "r") as tar:
+            tar.extractall(config.root)
+
+    def deploy_bases(self, config):
+        """Deploys the bases for the current config"""
+        bases = getattr(config, "bases")
+        if not bases:
+            return
+        for base in bases:
+            self.deploy_base(config=config, base=base)
+
     def run_emerge(self, args):
         """Runs the emerge command with the passed args"""
-        self.logger.debug("Running emerge with args: " + " ".join(args))
+        self.logger.info("Running emerge with args: " + " ".join(args))
         ret = run(["emerge", *args], capture_output=True)
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
@@ -68,15 +101,15 @@ class GenTree:
         Then builds the packages in the config"""
         self.build_bases(config=config)
         self.prepare_build(config=config)
+        self.deploy_bases(config=config)
         self.perform_emerge(config=config)
         self.pack(config=config)
 
     def pack(self, config):
         """Packs the built tree into {name}.tar.xz"""
-        from tarfile import TarFile
-        archive = config.layer_dir / f"{config.name}.tar.xz"
+        archive = config.layer_dir / f"{config.name}.tar"
         self.logger.info(f"[{config.root}] Packing tree to: {archive}")
-        with TarFile.open(archive, "w:xz") as tar:
+        with TarFile.open(archive, "w") as tar:
             for file in config.root.rglob("*"):
                 tar.add(file, arcname=file.relative_to(config.root))
 

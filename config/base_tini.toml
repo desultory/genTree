@@ -1,4 +1,4 @@
-name = "tini_base"
+name = "base_tini"
 
 bases = [
 "config/glibc.toml",

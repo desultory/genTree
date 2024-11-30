@@ -1,6 +1,0 @@
-name = "nginx"
-
-#inherit_use = true
-use = "nginx"
-
-packages = ["www-servers/nginx"]

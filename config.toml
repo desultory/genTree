@@ -1,7 +1,6 @@
 name = "nginx"
-#config_root = "./config_root"
 
-bases = [
-"config/base.toml",
-"config/nginx.toml"
-]
+bases = ["config/base_tini.toml"]
+
+use = "nginx"
+packages = ["www-servers/nginx"]

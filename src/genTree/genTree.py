@@ -9,6 +9,7 @@ from .genTreeConfig import GenTreeConfig
 
 def preserve_world(func):
     """Preserves the world file of the config before running the function"""
+
     def get_world_set(config):
         """returns a set containing world entries under the root of the supplied config"""
         with open(config.root / "var/lib/portage/world") as world:
@@ -98,7 +99,9 @@ class GenTree:
         """Builds all bases and branches under the current config
         Then builds the packages in the config"""
         if config.layer_archive.exists() and not config.rebuild:
-            return config.logger.warning(f"[{config.name}] Skipping build, layer archive exists")
+            return config.logger.warning(
+                f"[{config.name}] Skipping build, layer archive exists: {config.layer_archive}"
+            )
 
         self.build_bases(config=config)
         self.prepare_build(config=config)

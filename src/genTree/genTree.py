@@ -7,13 +7,14 @@ from zenlib.logging import loggify
 from .genTreeConfig import GenTreeConfig
 
 
+def get_world_set(config):
+    """returns a set containing world entries under the root of the supplied config"""
+    with open(config.root / "var/lib/portage/world") as world:
+        return set(world.read().splitlines())
+
+
 def preserve_world(func):
     """Preserves the world file of the config before running the function"""
-
-    def get_world_set(config):
-        """returns a set containing world entries under the root of the supplied config"""
-        with open(config.root / "var/lib/portage/world") as world:
-            return set(world.read().splitlines())
 
     def wrapper(self, config, *args, **kwargs):
         try:

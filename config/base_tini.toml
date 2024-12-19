@@ -1,8 +1,0 @@
-name = "base_tini"
-
-bases = [
-"config/glibc.toml",
-"config/tini.toml",
-]
-
-packages = ["baselayout"]

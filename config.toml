@@ -1,6 +1,6 @@
 name = "nginx"
 
-bases = ["config/base_tini.toml"]
+bases = ["config/tini.toml"]
 
 use = "nginx"
 packages = ["www-servers/nginx"]

@@ -32,6 +32,8 @@ class DeviceFilterMixIn:
 class GenTreeTarFilter(AbsoluteSymlinkFilterMixIn, DeviceFilterMixIn):
     def __call__(self, member, *args, **kwargs):
         member = self.filter_devices(member)
+        if member is None:
+            return
         member = self.rewrite_absolute_symlinks(member)
         if args:
             member = data_filter(member, *args, **kwargs)

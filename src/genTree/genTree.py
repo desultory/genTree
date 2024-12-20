@@ -116,10 +116,15 @@ class GenTree:
 
     def pack(self, config):
         """Packs the built tree into {config.layer_archive}"""
-        self.logger.info(f"[{config.root}] Packing tree to: {config.layer_archive}")
+        config.logger.info(f"[{config.root}] Packing tree to: {config.layer_archive}")
         with TarFile.open(config.layer_archive, "w") as tar:
             for file in config.root.rglob("*"):
-                tar.add(file, arcname=file.relative_to(config.root), filter=GenTreeTarFilter(logger=config.logger))
+                archive_path = file.relative_to(config.root)
+                if archive_path in tar.getnames():
+                    config.logger.warning(f"[{config.root}] Skipping duplicate file: {archive_path}")
+                    continue
+                config.logger.debug(f"[{config.root}] Adding file: {archive_path}")
+                tar.add(file, arcname=archive_path, filter=GenTreeTarFilter(logger=config.logger), recursive=False)
 
     def build_tree(self):
         """Builds the tree"""

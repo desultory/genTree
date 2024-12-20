@@ -1,26 +1,27 @@
 from shutil import rmtree
 from subprocess import run
-from tarfile import TarFile
+from tarfile import TarFile, ReadError
 
 from zenlib.logging import loggify
 
 from .genTreeConfig import GenTreeConfig
+from .genTreeTarFilter import GenTreeTarFilter
 
 
 def get_world_set(config):
     """returns a set containing world entries under the root of the supplied config"""
-    with open(config.root / "var/lib/portage/world") as world:
-        return set(world.read().splitlines())
+    try:
+        with open(config.root / "var/lib/portage/world") as world:
+            return set(world.read().splitlines())
+    except FileNotFoundError:
+        return set()
 
 
 def preserve_world(func):
     """Preserves the world file of the config before running the function"""
 
     def wrapper(self, config, *args, **kwargs):
-        try:
-            world = get_world_set(config)
-        except FileNotFoundError:
-            world = set()
+        world = get_world_set(config)
         ret = func(self, config, *args, **kwargs)
         new_world = get_world_set(config)
         for entry in world:
@@ -61,8 +62,11 @@ class GenTree:
     def deploy_base(self, config, base):
         """Deploys a base over the config root"""
         config.logger.info(f"[{base.name}] Unpacking base layer to build root: {config.root}")
-        with TarFile.open(base.layer_archive, "r") as tar:
-            tar.extractall(config.root)
+        try:
+            with TarFile.open(base.layer_archive, "r") as tar:
+                tar.extractall(config.root, filter=GenTreeTarFilter(logger=config.logger))
+        except ReadError as e:
+            raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
 
     def deploy_bases(self, config):
         """Deploys the bases for the current config"""
@@ -115,7 +119,7 @@ class GenTree:
         self.logger.info(f"[{config.root}] Packing tree to: {config.layer_archive}")
         with TarFile.open(config.layer_archive, "w") as tar:
             for file in config.root.rglob("*"):
-                tar.add(file, arcname=file.relative_to(config.root))
+                tar.add(file, arcname=file.relative_to(config.root), filter=GenTreeTarFilter(logger=config.logger))
 
     def build_tree(self):
         """Builds the tree"""

@@ -7,7 +7,6 @@ from zenlib.logging import loggify
 from zenlib.util import colorize
 
 from .genTreeConfig import GenTreeConfig
-from .genTreeTarFilter import GenTreeTarFilter
 
 
 def get_world_set(config):
@@ -41,6 +40,7 @@ class GenTree:
     def __init__(self, config_file="config.toml", output_file="out.tar", *args, **kwargs):
         self.output_file = Path(output_file)
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
+        self.mounts = []  # List of mounts to unmount on exit
 
     def build_bases(self, config):
         """Builds the bases for the current config"""
@@ -60,7 +60,9 @@ class GenTree:
                 if not root_dir.exists():
                     continue
                 if root_dir.is_mount():
-                    config.logger.warning(f"[{colorize(config.name, "blue")}] Unmounting root: {colorize(root_dir, "yellow")}")
+                    config.logger.warning(
+                        f"[{colorize(config.name, "blue")}] Unmounting root: {colorize(root_dir, "yellow")}"
+                    )
                     run(["umount", root_dir], check=True)
                 config.logger.warning(f"[{colorize(config.name, "blue")}] Cleaning root: {colorize(root_dir, "red")}")
                 rmtree(root_dir, ignore_errors=True)
@@ -74,24 +76,18 @@ class GenTree:
         dest = dest or config.lower_root
         for sub_base in base.bases:
             self.deploy_base(config=config, base=sub_base, dest=dest)
-        config.logger.info(f"[{colorize(base.name, "blue")}] Unpacking base layer to lower build root: {colorize(dest, "yellow")}")
+        config.logger.info(
+            f"[{colorize(base.name, "blue")}] Unpacking base layer to build root: {colorize(dest, "yellow")}"
+        )
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
-                tar.extractall(dest, filter=GenTreeTarFilter(logger=config.logger))
+                tar.extractall(dest, filter=config.tar_filter)
         except ReadError as e:
             raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
 
-    def deploy_bases(self, config):
-        """Deploys the bases to the lower dir for the current config.
-        Mounts an overlayfs on the build root."""
-        bases = getattr(config, "bases")
-        if not bases:
-            return
-        config.check_dir("lower_root")
-        for base in bases:
-            self.deploy_base(config=config, base=base)
-        config.check_dir("work_root")
-        config.check_dir("upper_root")
+    def mount_overlay(self, config):
+        """Mounts an overlayfs on the build root"""
+        config.check_dir([f"{root}_root" for root in ["lower", "work", "upper"]])
         self.logger.info(f"[{colorize(config.name, "blue")}] Mounting overlayfs on: {colorize(config.root, "yellow")}")
         run(
             [
@@ -105,6 +101,18 @@ class GenTree:
             ],
             check=True,
         )
+        self.mounts.append(config.root)
+
+    def deploy_bases(self, config):
+        """Deploys the bases to the lower dir for the current config.
+        Mounts an overlayfs on the build root."""
+        bases = getattr(config, "bases")
+        if not bases:
+            return
+        config.check_dir("lower_root")
+        for base in bases:
+            self.deploy_base(config=config, base=base)
+        self.mount_overlay(config)
 
     def run_emerge(self, args):
         """Runs the emerge command with the passed args"""
@@ -158,7 +166,9 @@ class GenTree:
         """Packs the built tree into {config.layer_archive}"""
         pack_root = config.root if not config.bases or pack_all else config.upper_root
         output_file = output_file or config.layer_archive
-        config.logger.info(f"[{colorize(pack_root, "yellow")}] Packing tree to: {colorize(output_file, "green", bold=True)}")
+        config.logger.info(
+            f"[{colorize(pack_root, "yellow")}] Packing tree to: {colorize(output_file, "green", bold=True)}"
+        )
         with TarFile.open(output_file, "w") as tar:
             for file in pack_root.rglob("*"):
                 archive_path = file.relative_to(pack_root)
@@ -169,14 +179,23 @@ class GenTree:
                 tar.add(
                     file,
                     arcname=archive_path,
-                    filter=GenTreeTarFilter(logger=config.logger),
+                    filter=config.tar_filter,
                     recursive=False,
                 )
 
         self.logger.info(f"Created archive: {colorize(output_file, "green", bold=True)}")
 
+    def clean_mounts(self):
+        """Unmounts all mounts in self.mounts"""
+        for mount in self.mounts:
+            self.logger.info(f"Unmounting: {colorize(mount, 'yellow')}")
+            run(["umount", mount], check=True)
+
     def build_tree(self):
         """Builds the tree"""
-        self.logger.info(f"[{colorize(self.config.name, "blue")}] Building tree at: {colorize(self.config.root, "blue", bold=True, bright=True)}")
+        self.logger.info(
+            f"[{colorize(self.config.name, "blue")}] Building tree at: {colorize(self.config.root, "blue", bold=True, bright=True)}"
+        )
         self.build(config=self.config)
         self.pack(config=self.config, pack_all=True, output_file=self.output_file)
+        self.clean_mounts()

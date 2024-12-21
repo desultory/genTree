@@ -6,6 +6,7 @@ from typing import Optional
 from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
 
+from .genTreeTarFilter import GenTreeTarFilter
 from .use_flags import UseFlags
 
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
@@ -40,6 +41,10 @@ class GenTreeConfig:
     use: UseFlags = None
     # portage args
     config_root: Path = None
+    # Tar filters
+    tar_filter_dev: bool = True
+    tar_filter_man: bool = True
+    tar_filter_docs: bool = True
 
     def __post_init__(self, *args, **kwargs):
         # If _branch is set, we are creating a branch, load kwargs under the config file
@@ -70,6 +75,15 @@ class GenTreeConfig:
     @property
     def layer_archive(self):
         return (self.layer_dir.resolve() / self.name).with_suffix(self.archive_extension)
+
+    @property
+    def tar_filter(self):
+        return GenTreeTarFilter(
+            logger=self.logger,
+            filter_dev=self.tar_filter_dev,
+            filter_man=self.tar_filter_man,
+            filter_docs=self.tar_filter_docs,
+        )
 
     @handle_plural
     def add_base(self, base: Path):

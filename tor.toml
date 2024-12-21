@@ -1,0 +1,9 @@
+name = "tor"
+
+bases = ["config/tini.toml"]
+
+use = ["seccomp", "tor-hardening"]
+packages = ["net-vpn/tor"]
+unmerge = ["sys-devel/gcc", "sys-libs/ncurses"]
+
+tar_filter_vardbpkg = true

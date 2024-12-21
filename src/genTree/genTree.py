@@ -81,7 +81,7 @@ class GenTree:
         )
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
-                tar.extractall(dest, filter=config.tar_filter)
+                tar.extractall(dest, filter='data')
         except ReadError as e:
             raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
 

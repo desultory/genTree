@@ -145,9 +145,8 @@ class GenTree:
         if not getattr(config, "unmerge", None):
             return
 
-        for package in config.unmerge:
-            config.logger.info(f"[{colorize(config.name, "blue")}] Unmerging package: {colorize(package, "red")}")
-            self.run_emerge(["--root", str(config.root), "--unmerge", package])
+        config.logger.info(f"[{colorize(config.name, "blue")}] Unmerging packages: {colorize(", ".join(config.unmerge), "red")}")
+        self.run_emerge(["--root", str(config.root), "--unmerge", *config.unmerge])
 
     def build(self, config, no_pack=False):
         """Builds all bases and branches under the current config

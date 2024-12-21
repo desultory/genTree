@@ -71,9 +71,9 @@ class GenTree:
     def deploy_base(self, config, base, dest=None):
         """Deploys bases over the config root. Recursively deploys bases of the base."""
         dest = dest or config.lower_root
-        config.logger.info(f"[{base.name}] Unpacking base layer to lower build root: {dest}")
         for sub_base in base.bases:
             self.deploy_base(config=config, base=sub_base, dest=dest)
+        config.logger.info(f"[{base.name}] Unpacking base layer to lower build root: {dest}")
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
                 tar.extractall(dest, filter=GenTreeTarFilter(logger=config.logger))

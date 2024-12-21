@@ -50,13 +50,8 @@ class GenTreeConfig:
     tar_filter_vardbpkg: bool = False
 
     def __post_init__(self, *args, **kwargs):
-        # If _branch is set, we are creating a branch, load kwargs under the config file
-        if getattr(self, "parent"):
-            self.inherit_parent()
-            self.load_config(self.config_file)
-        else:
-            self.load_config(self.config_file or kwargs.get("config_file"))
-            self.process_kwargs(kwargs)
+        self.load_config(self.config_file or kwargs.get("config_file"))
+        self.process_kwargs(kwargs)
         self.validate_config()
 
     @property
@@ -98,12 +93,16 @@ class GenTreeConfig:
 
     def inherit_parent(self):
         """Inherits config from the parent object"""
+        self.logger.log(5, "Inheriting config from parent: %s", self.parent)
         for attr in INHERITED_CONFIG:
-            setattr(self, attr, getattr(self.parent, attr))
+            parent_val = getattr(self.parent, attr)
+            self.logger.debug("Inheriting attribute: %s=%s", attr, parent_val)
+            setattr(self, attr, parent_val)
 
     def process_kwargs(self, kwargs):
         """Process kwargs to set config values"""
         for key, value in kwargs.items():
+            self.logger.debug("Setting attribute from kwargs: %s=%s", key, value)
             setattr(self, key, value)
 
     def load_config(self, config_file):
@@ -114,19 +113,24 @@ class GenTreeConfig:
 
         with open(config, "rb") as f:
             self.config = load(f)
+
         self.name = self.config["name"]
         self.logger = self.logger.parent.getChild(self.name) if self.logger.parent else self.logger.getChild(self.name)
         self.logger.debug(f"[{config_file}] Loaded config: {self.config}")
 
-        self.load_use()
-        self.bases = []
+        if getattr(self, "parent"):
+            self.inherit_parent()
+
         for key, value in self.config.items():
-            if key in ["name", "logger", "use", "inherit_use"]:
-                continue
-            elif key == "bases":
-                self.add_base(value)
+            if key in ["name", "logger", "use", "bases"]:
                 continue
             setattr(self, key, value)
+
+        self.load_use()
+
+        self.bases = []
+        for base in self.config.get("bases", []):
+            self.add_base(base)
 
     def load_use(self):
         """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""

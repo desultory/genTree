@@ -1,7 +1,7 @@
 name = "tor"
 output_file = "tor.tar"
 
-bases = ["config/tini.toml"]
+bases = ["tini"]
 
 use = ["seccomp", "tor-hardening"]
 packages = ["net-vpn/tor"]

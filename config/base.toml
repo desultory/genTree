@@ -1,5 +1,0 @@
-# Creates the base layer, adds symlinks for merged-usr
-
-name = "base"
-use = "build"
-packages = ["baselayout"]

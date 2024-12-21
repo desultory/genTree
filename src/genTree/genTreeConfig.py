@@ -16,7 +16,7 @@ INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean_build", "rebuild", "layer_dir", "base_
 
 
 def find_config(config_file):
-    """ Finds a config file included in the config module """
+    """Finds a config file included in the config module"""
     module_dir = Path(__file__).parent / "config"
     config = module_dir / Path(config_file).with_suffix(".toml")
     if not config.exists():
@@ -91,9 +91,15 @@ class GenTreeConfig:
             filter_args[f"filter_{f_name}"] = getattr(self, f"tar_filter_{f_name}")
         return GenTreeTarFilter(logger=self.logger, **filter_args)
 
+    @property
+    def file_display_name(self):
+        if self.config_file.is_relative_to(Path(__file__).parent):
+            return self.config_file.name
+        return self.config_file
+
     @handle_plural
     def add_base(self, base: Union[str, Path]):
-        """ Adds a base is a config which is used as an image base for the current config """
+        """Adds a base is a config which is used as an image base for the current config"""
         if not str(base).endswith(".toml"):
             base = find_config(base)
         self.bases.append(GenTreeConfig(logger=self.logger, config_file=base, parent=self))

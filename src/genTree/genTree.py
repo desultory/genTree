@@ -45,7 +45,7 @@ class GenTree:
             for base in bases:
                 base.logger.info(
                     "[%s] Building base: %s",
-                    colorize(config.config_file, "cyan"),
+                    colorize(config.file_display_name, "cyan"),
                     colorize(base.name, "blue", bold=True),
                 )
                 self.build(config=base)

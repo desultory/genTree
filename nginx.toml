@@ -1,7 +1,7 @@
 name = "nginx"
 output_file = "nginx.tar"
 
-bases = ["config/tini.toml"]
+bases = ["tini"]
 
 use = "nginx"
 packages = ["www-servers/nginx"]

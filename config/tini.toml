@@ -1,3 +1,0 @@
-name = "tini"
-bases = ["config/glibc.toml"]
-packages = ["sys-process/tini"]

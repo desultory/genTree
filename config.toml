@@ -5,3 +5,6 @@ bases = ["config/tini.toml"]
 use = "nginx"
 packages = ["www-servers/nginx"]
 unmerge = ["sys-devel/gcc"]
+
+tar_filter_terminfo = true
+tar_filter_vardbpkg = true

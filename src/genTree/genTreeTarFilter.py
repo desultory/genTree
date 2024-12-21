@@ -1,16 +1,19 @@
-from zenlib.logging import loggify
-from tarfile import data_filter
 from pathlib import Path
+from tarfile import data_filter
+
+from zenlib.logging import loggify
 
 
 def get_relative_prefix(path):
-    """ Takes a path, returns ../ for each path component """
+    """Takes a path, returns ../ for each path component"""
     path = Path(path).parent
     return Path("/".join([".." for _ in path.parts]))
 
 
 @loggify
 class GenTreeTarFilter:
+    DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc", "usr/share/sgml"]
+
     def __init__(self, *args, **kwargs):
         for name in kwargs.copy():
             if name.startswith("filter_"):
@@ -25,7 +28,6 @@ class GenTreeTarFilter:
                 if getattr(self, f"filter_{filter_name}"):
                     yield getattr(self, f"f_{filter_name}")
 
-
     def __call__(self, member, *args, **kwargs):
         member = self.rewrite_absolute_symlinks(member)
         for f in self.filters:
@@ -38,30 +40,40 @@ class GenTreeTarFilter:
         return member
 
     def f_dev(self, member):
-        """ Filters device files """
+        """Filters device files"""
         if member.ischr() or member.isblk():
             return self.logger.debug("Filtering device file: %s", member.name)
         return member
 
     def f_man(self, member):
-        """ Filters manual pages """
+        """Filters manual pages"""
         if member.name.startswith("usr/share/man/"):
             return self.logger.debug("Filtering man page: %s", member.name)
         return member
 
     def f_docs(self, member):
-        """ Filters documentation """
-        if member.name.startswith("usr/share/doc/"):
+        """Filters documentation"""
+        if any(member.name.startswith(d) for d in self.DOC_DIRS):
             return self.logger.debug("Filtering documentation: %s", member.name)
         return member
 
     def f_include(self, member):
-        """ Filters include files """
+        """Filters include files"""
         if member.name.startswith("usr/include/"):
             return self.logger.debug("Filtering include file: %s", member.name)
         return member
 
+    def f_terminfo(self, member):
+        """filters terminfo files"""
+        if member.name.startswith("usr/share/terminfo/"):
+            return self.logger.debug("Filtering terminfo file: %s", member.name)
+        return member
 
+    def f_vardbpkg(self, member):
+        """Filters /var/db/pkg"""
+        if member.name.startswith("var/db/pkg/"):
+            return self.logger.debug("Filtering /var/db/pkg: %s", member.name)
+        return member
 
     def rewrite_absolute_symlinks(self, member):
         if member.issym() and member.linkname.startswith("/"):
@@ -72,4 +84,3 @@ class GenTreeTarFilter:
             self.logger.debug("Rewrote absolute symlink: %s", new_target)
             member.linkname = str(new_target)
         return member
-

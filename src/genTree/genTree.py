@@ -149,9 +149,11 @@ class GenTree:
             config.logger.info(f"[{colorize(config.name, "blue")}] Unmerging package: {colorize(package, "red")}")
             self.run_emerge(["--root", str(config.root), "--unmerge", package])
 
-    def build(self, config):
+    def build(self, config, no_pack=False):
         """Builds all bases and branches under the current config
-        Then builds the packages in the config"""
+        Builds/installs packages in the config build root
+        Unmerges packages in the config unmerge list
+        Packs the build tree into the config layer archive if no_pack is False"""
         if config.layer_archive.exists() and not config.rebuild:
             return config.logger.warning(
                 f"[{config.name}] Skipping build, layer archive exists: {config.layer_archive}"
@@ -162,6 +164,8 @@ class GenTree:
         self.deploy_bases(config=config)
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
+        if no_pack:
+            return
         self.pack(config=config)
 
     def pack(self, config, pack_all=False, output_file=None):
@@ -174,7 +178,7 @@ class GenTree:
         with TarFile.open(output_file, "w") as tar:
             for file in pack_root.rglob("*"):
                 archive_path = file.relative_to(pack_root)
-                config.logger.debug(f"[{pack_root}] Adding file: {archive_path}")
+                config.logger.log(5, f"[{pack_root}] Adding file: {archive_path}")
                 tar.add(
                     file,
                     arcname=archive_path,
@@ -191,10 +195,13 @@ class GenTree:
             run(["umount", mount], check=True)
 
     def build_tree(self):
-        """Builds the tree"""
+        """Builds the tree.
+        Packs the reslting tree into {self.output_file}
+        Does not make a layer archive for the root config
+        """
         self.logger.info(
             f"[{colorize(self.config.name, "blue")}] Building tree at: {colorize(self.config.root, "blue", bold=True, bright=True)}"
         )
-        self.build(config=self.config)
+        self.build(config=self.config, no_pack=True)
         self.pack(config=self.config, pack_all=True, output_file=self.output_file)
         self.clean_mounts()

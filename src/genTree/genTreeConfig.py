@@ -46,6 +46,8 @@ class GenTreeConfig:
     tar_filter_man: bool = True
     tar_filter_docs: bool = True
     tar_filter_include: bool = True
+    tar_filter_terminfo: bool = False
+    tar_filter_vardbpkg: bool = False
 
     def __post_init__(self, *args, **kwargs):
         # If _branch is set, we are creating a branch, load kwargs under the config file
@@ -79,13 +81,10 @@ class GenTreeConfig:
 
     @property
     def tar_filter(self):
-        return GenTreeTarFilter(
-            logger=self.logger,
-            filter_dev=self.tar_filter_dev,
-            filter_man=self.tar_filter_man,
-            filter_docs=self.tar_filter_docs,
-            filter_include=self.tar_filter_include,
-        )
+        filter_args = {}
+        for f_name in [a.replace("tar_filter_", "") for a in self.__dataclass_fields__ if a.startswith("tar_filter_")]:
+            filter_args[f"filter_{f_name}"] = getattr(self, f"tar_filter_{f_name}")
+        return GenTreeTarFilter(logger=self.logger, **filter_args)
 
     @handle_plural
     def add_base(self, base: Path):

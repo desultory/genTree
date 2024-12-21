@@ -43,7 +43,11 @@ class GenTree:
         """Builds the bases for the current config"""
         if bases := config.bases:
             for base in bases:
-                base.logger.info(f"[{config.config_file}] Building base: {colorize(base.name, "blue", bold=True)}")
+                base.logger.info(
+                    "[%s] Building base: %s",
+                    colorize(config.config_file, "cyan"),
+                    colorize(base.name, "blue", bold=True),
+                )
                 self.build(config=base)
 
     def prepare_build(self, config):
@@ -58,10 +62,14 @@ class GenTree:
                     continue
                 if root_dir.is_mount():
                     config.logger.warning(
-                        f"[{colorize(config.name, "blue")}] Unmounting root: {colorize(root_dir, "yellow")}"
+                        "[%s] Unmounting root: %s",
+                        colorize(config.name, "blue"),
+                        colorize(root_dir, "yellow"),
                     )
                     run(["umount", root_dir], check=True)
-                config.logger.warning(f"[{colorize(config.name, "blue")}] Cleaning root: {colorize(root_dir, "red")}")
+                config.logger.warning(
+                    "[%s] Cleaning root: %s", colorize(config.name, "blue"), colorize(root_dir, "red")
+                )
                 rmtree(root_dir, ignore_errors=True)
 
         config.check_dir("root")
@@ -74,7 +82,9 @@ class GenTree:
         for sub_base in base.bases:
             self.deploy_base(config=config, base=sub_base, dest=dest)
         config.logger.info(
-            f"[{colorize(base.name, "blue")}] Unpacking base layer to build root: {colorize(dest, "yellow")}"
+            "[%s] Unpacking base layer to build root: %s",
+            colorize(base.name, "blue"),
+            colorize(dest, "yellow"),
         )
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
@@ -86,7 +96,9 @@ class GenTree:
         """Mounts an overlayfs on the build root"""
         config.check_dir([f"{root}_root" for root in ["lower", "work", "upper"]])
         self.logger.info(
-            f"[{colorize(config.name, "blue")}] Mounting overlayfs on: {colorize(config.root, "yellow", bold=True)}"
+            "[%s] Mounting overlayfs on: %s",
+            colorize(config.name, "blue"),
+            colorize(config.root, "magenta", bold=True),
         )
         run(
             [
@@ -125,7 +137,7 @@ class GenTree:
     def perform_emerge(self, config):
         """Performs the emerge command for the current config"""
         if not getattr(config, "packages", None):
-            config.logger.debug(f"[{colorize(config.config_file, "blue", bold=True)}] No packages to build")
+            config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
             config.built = True
             return
 
@@ -137,12 +149,12 @@ class GenTree:
             self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"])
 
     def perform_unmerge(self, config):
-        """depcleans the packages in the unmerge list"""
+        """unmerges the packages in the unmerge list"""
         if not getattr(config, "unmerge", None):
             return
 
         config.logger.info(
-            f"[{colorize(config.name, "blue")}] Unmerging packages: {colorize(", ".join(config.unmerge), "red")}"
+            "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(config.unmerge), "red")
         )
         self.run_emerge(["--root", str(config.root), "--unmerge", *config.unmerge])
 
@@ -151,12 +163,14 @@ class GenTree:
         Builds/installs packages in the config build root
         Unmerges packages in the config unmerge list
         Packs the build tree into the config layer archive if no_pack is False"""
+        self.build_bases(config=config)
         if config.layer_archive.exists() and not config.rebuild:
             return config.logger.warning(
-                f"[{config.name}] Skipping build, layer archive exists: {config.layer_archive}"
+                "[%s] Skipping build, layer archive exists: %s",
+                colorize(config.name, "blue"),
+                colorize(config.layer_archive, "green"),
             )
 
-        self.build_bases(config=config)
         self.prepare_build(config=config)
         self.deploy_bases(config=config)
         self.perform_emerge(config=config)
@@ -169,7 +183,9 @@ class GenTree:
         Unmounts the build root if it is a mount."""
         pack_root = config.root if not config.bases or pack_all else config.upper_root
         config.logger.info(
-            f"[{colorize(pack_root, "yellow")}] Packing tree to: {colorize(config.layer_archive, "green", bold=True)}"
+            "[%s] Packing tree to: %s",
+            colorize(config.name, "cyan"),
+            colorize(config.layer_archive, "green", bold=True),
         )
         with TarFile.open(config.layer_archive, "w") as tar:
             for file in pack_root.rglob("*"):
@@ -184,7 +200,9 @@ class GenTree:
 
         self.logger.info(f"Created archive: {colorize(config.layer_archive, "green", bold=True)}")
         if config.root.is_mount():
-            config.logger.info(f"[{config.name}] Unmounting build root: {config.root}")
+            config.logger.info(
+                "[%s] Unmounting build root: %s", colorize(config.name, "blue"), colorize(config.root, "magenta")
+            )
             run(["umount", config.root], check=True)
 
     def build_tree(self):
@@ -193,7 +211,9 @@ class GenTree:
         Does not make a layer archive for the root config
         """
         self.logger.info(
-            f"[{colorize(self.config.name, "blue")}] Building tree at: {colorize(self.config.root, "blue", bold=True, bright=True)}"
+            "[%s] Building tree at: %s",
+            colorize(self.config.name, "blue", bold=True, bright=True),
+            colorize(self.config.root, "magenta", bold=True, bright=True),
         )
         self.build(config=self.config, no_pack=True)
         self.pack(config=self.config, pack_all=True)

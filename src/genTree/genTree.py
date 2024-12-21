@@ -88,7 +88,9 @@ class GenTree:
     def mount_overlay(self, config):
         """Mounts an overlayfs on the build root"""
         config.check_dir([f"{root}_root" for root in ["lower", "work", "upper"]])
-        self.logger.info(f"[{colorize(config.name, "blue")}] Mounting overlayfs on: {colorize(config.root, "yellow")}")
+        self.logger.info(
+            f"[{colorize(config.name, "blue")}] Mounting overlayfs on: {colorize(config.root, "yellow", bold=True)}"
+        )
         run(
             [
                 "mount",
@@ -172,9 +174,6 @@ class GenTree:
         with TarFile.open(output_file, "w") as tar:
             for file in pack_root.rglob("*"):
                 archive_path = file.relative_to(pack_root)
-                if archive_path in tar.getnames():
-                    config.logger.warning(f"[{pack_root}] Skipping duplicate file: {archive_path}")
-                    continue
                 config.logger.debug(f"[{pack_root}] Adding file: {archive_path}")
                 tar.add(
                     file,
@@ -188,7 +187,7 @@ class GenTree:
     def clean_mounts(self):
         """Unmounts all mounts in self.mounts"""
         for mount in self.mounts:
-            self.logger.info(f"Unmounting: {colorize(mount, 'yellow')}")
+            self.logger.info(f"Unmounting: {colorize(mount, 'yellow', bold=True)}")
             run(["umount", mount], check=True)
 
     def build_tree(self):

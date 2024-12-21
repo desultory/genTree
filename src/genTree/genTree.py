@@ -168,7 +168,7 @@ class GenTree:
             return config.logger.warning(
                 "[%s] Skipping build, layer archive exists: %s",
                 colorize(config.name, "blue"),
-                colorize(config.layer_archive, "green"),
+                colorize(config.layer_archive, "cyan"),
             )
 
         self.prepare_build(config=config)
@@ -184,7 +184,7 @@ class GenTree:
         pack_root = config.root if not config.bases or pack_all else config.upper_root
         config.logger.info(
             "[%s] Packing tree to: %s",
-            colorize(config.name, "cyan"),
+            colorize(config.name, "blue", bold=True),
             colorize(config.layer_archive, "green", bold=True),
         )
         with TarFile.open(config.layer_archive, "w") as tar:
@@ -198,7 +198,12 @@ class GenTree:
                     recursive=False,
                 )
 
-        self.logger.info(f"Created archive: {colorize(config.layer_archive, "green", bold=True)}")
+        self.logger.info(
+            "[%s] Created archive: %s",
+            colorize(config.name, "blue", bold=True),
+            colorize(config.layer_archive, "green", bold=True),
+        )
+
         if config.root.is_mount():
             config.logger.info(
                 "[%s] Unmounting build root: %s", colorize(config.name, "blue"), colorize(config.root, "magenta")

@@ -45,6 +45,7 @@ class GenTreeConfig:
     tar_filter_dev: bool = True
     tar_filter_man: bool = True
     tar_filter_docs: bool = True
+    tar_filter_include: bool = True
 
     def __post_init__(self, *args, **kwargs):
         # If _branch is set, we are creating a branch, load kwargs under the config file
@@ -83,6 +84,7 @@ class GenTreeConfig:
             filter_dev=self.tar_filter_dev,
             filter_man=self.tar_filter_man,
             filter_docs=self.tar_filter_docs,
+            filter_include=self.tar_filter_include,
         )
 
     @handle_plural

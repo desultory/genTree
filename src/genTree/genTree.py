@@ -146,8 +146,8 @@ class GenTree:
             return
 
         for package in config.unmerge:
-            config.logger.info(f"[{colorize(config.name, "blue")}] Depcleaning package: {colorize(package, "red")}")
-            self.run_emerge(["--root", str(config.root), "--depclean", package])
+            config.logger.info(f"[{colorize(config.name, "blue")}] Unmerging package: {colorize(package, "red")}")
+            self.run_emerge(["--root", str(config.root), "--unmerge", package])
 
     def build(self, config):
         """Builds all bases and branches under the current config

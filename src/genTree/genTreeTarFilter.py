@@ -38,24 +38,27 @@ class GenTreeTarFilter:
         return member
 
     def f_dev(self, member):
+        """ Filters device files """
         if member.ischr() or member.isblk():
             return self.logger.debug("Filtering device file: %s", member.name)
         return member
 
     def f_man(self, member):
-        """ Filters out items with a path that starts with:
-            usr/share/man/
-        """
+        """ Filters manual pages """
         if member.name.startswith("usr/share/man/"):
             return self.logger.debug("Filtering man page: %s", member.name)
         return member
 
     def f_docs(self, member):
-        """ Filters out items with a path that starts with:
-            usr/share/doc/
-        """
+        """ Filters documentation """
         if member.name.startswith("usr/share/doc/"):
             return self.logger.debug("Filtering documentation: %s", member.name)
+        return member
+
+    def f_include(self, member):
+        """ Filters include files """
+        if member.name.startswith("usr/include/"):
+            return self.logger.debug("Filtering include file: %s", member.name)
         return member
 
 

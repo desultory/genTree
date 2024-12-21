@@ -56,7 +56,6 @@ class GenTreeConfig:
     tar_filter_man: bool = True
     tar_filter_docs: bool = True
     tar_filter_include: bool = True
-    tar_filter_terminfo: bool = False
     tar_filter_vardbpkg: bool = False
 
     def __post_init__(self, *args, **kwargs):

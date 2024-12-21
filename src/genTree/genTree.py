@@ -178,6 +178,8 @@ class GenTree:
         if not no_pack:
             self.pack(config=config)
 
+        return True
+
     def pack(self, config, pack_all=False):
         """Packs the built tree into {config.layer_archive}.
         Unmounts the build root if it is a mount."""
@@ -212,13 +214,11 @@ class GenTree:
 
     def build_tree(self):
         """Builds the tree.
-        Packs the reslting tree into {self.output_file}
-        Does not make a layer archive for the root config
-        """
+        Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
         self.logger.info(
             "[%s] Building tree at: %s",
             colorize(self.config.name, "blue", bold=True, bright=True),
             colorize(self.config.root, "magenta", bold=True, bright=True),
         )
-        self.build(config=self.config, no_pack=True)
-        self.pack(config=self.config, pack_all=True)
+        if self.build(config=self.config, no_pack=True):  # If there is nothing to build, don't pack
+            self.pack(config=self.config, pack_all=True)

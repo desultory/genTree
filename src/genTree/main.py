@@ -14,9 +14,6 @@ def main():
             "action": "store",
             "default": "config.toml",
         },
-        {"flags": ["--root"], "help": "Set the emerge ROOT target rootfs path.", "action": "store"},
-        {"flags": ["--config-root"], "help": "Set the config root for portage.", "action": "store"},
-        {"flags": ["--output-file"], "help": "Set the output file", "action": "store"},
     ]
 
     kwargs = get_kwargs(

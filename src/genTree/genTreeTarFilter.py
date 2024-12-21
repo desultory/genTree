@@ -12,7 +12,7 @@ def get_relative_prefix(path):
 
 @loggify
 class GenTreeTarFilter:
-    DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc", "usr/share/sgml"]
+    DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc"]
 
     def __init__(self, *args, **kwargs):
         for name in kwargs.copy():

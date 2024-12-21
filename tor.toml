@@ -1,4 +1,5 @@
 name = "tor"
+output_file = "tor.tar"
 
 bases = ["config/tini.toml"]
 

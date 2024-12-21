@@ -31,6 +31,7 @@ class GenTreeConfig:
     inherit_use: bool = False  # Inherit USE flags from the parent
     layer_dir: Path = "/var/lib/genTree/layers"
     archive_extension: str = ".tar"
+    output_file: Path = None  # Override the output file
     base_build_dir: Path = "/var/lib/genTree/builds"
     # Environment variable directories
     emerge_log_dir: Path = "/var/lib/genTree/emerge_logs"
@@ -72,7 +73,7 @@ class GenTreeConfig:
 
     @property
     def layer_archive(self):
-        return (self.layer_dir.resolve() / self.name).with_suffix(self.archive_extension)
+        return self.output_file or (self.layer_dir.resolve() / self.name).with_suffix(self.archive_extension)
 
     @property
     def tar_filter(self):

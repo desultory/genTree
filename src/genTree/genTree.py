@@ -1,4 +1,3 @@
-from pathlib import Path
 from shutil import rmtree
 from subprocess import run
 from tarfile import ReadError, TarFile
@@ -37,10 +36,8 @@ def preserve_world(func):
 
 @loggify
 class GenTree:
-    def __init__(self, config_file="config.toml", output_file="out.tar", *args, **kwargs):
-        self.output_file = Path(output_file)
+    def __init__(self, config_file="config.toml", *args, **kwargs):
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
-        self.mounts = []  # List of mounts to unmount on exit
 
     def build_bases(self, config):
         """Builds the bases for the current config"""
@@ -81,7 +78,7 @@ class GenTree:
         )
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
-                tar.extractall(dest, filter='data')
+                tar.extractall(dest, filter="data")
         except ReadError as e:
             raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
 
@@ -103,7 +100,6 @@ class GenTree:
             ],
             check=True,
         )
-        self.mounts.append(config.root)
 
     def deploy_bases(self, config):
         """Deploys the bases to the lower dir for the current config.
@@ -145,7 +141,9 @@ class GenTree:
         if not getattr(config, "unmerge", None):
             return
 
-        config.logger.info(f"[{colorize(config.name, "blue")}] Unmerging packages: {colorize(", ".join(config.unmerge), "red")}")
+        config.logger.info(
+            f"[{colorize(config.name, "blue")}] Unmerging packages: {colorize(", ".join(config.unmerge), "red")}"
+        )
         self.run_emerge(["--root", str(config.root), "--unmerge", *config.unmerge])
 
     def build(self, config, no_pack=False):
@@ -163,18 +161,17 @@ class GenTree:
         self.deploy_bases(config=config)
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
-        if no_pack:
-            return
-        self.pack(config=config)
+        if not no_pack:
+            self.pack(config=config)
 
-    def pack(self, config, pack_all=False, output_file=None):
-        """Packs the built tree into {config.layer_archive}"""
+    def pack(self, config, pack_all=False):
+        """Packs the built tree into {config.layer_archive}.
+        Unmounts the build root if it is a mount."""
         pack_root = config.root if not config.bases or pack_all else config.upper_root
-        output_file = output_file or config.layer_archive
         config.logger.info(
-            f"[{colorize(pack_root, "yellow")}] Packing tree to: {colorize(output_file, "green", bold=True)}"
+            f"[{colorize(pack_root, "yellow")}] Packing tree to: {colorize(config.layer_archive, "green", bold=True)}"
         )
-        with TarFile.open(output_file, "w") as tar:
+        with TarFile.open(config.layer_archive, "w") as tar:
             for file in pack_root.rglob("*"):
                 archive_path = file.relative_to(pack_root)
                 config.logger.log(5, f"[{pack_root}] Adding file: {archive_path}")
@@ -185,13 +182,10 @@ class GenTree:
                     recursive=False,
                 )
 
-        self.logger.info(f"Created archive: {colorize(output_file, "green", bold=True)}")
-
-    def clean_mounts(self):
-        """Unmounts all mounts in self.mounts"""
-        for mount in self.mounts:
-            self.logger.info(f"Unmounting: {colorize(mount, 'yellow', bold=True)}")
-            run(["umount", mount], check=True)
+        self.logger.info(f"Created archive: {colorize(config.layer_archive, "green", bold=True)}")
+        if config.root.is_mount():
+            config.logger.info(f"[{config.name}] Unmounting build root: {config.root}")
+            run(["umount", config.root], check=True)
 
     def build_tree(self):
         """Builds the tree.
@@ -202,5 +196,4 @@ class GenTree:
             f"[{colorize(self.config.name, "blue")}] Building tree at: {colorize(self.config.root, "blue", bold=True, bright=True)}"
         )
         self.build(config=self.config, no_pack=True)
-        self.pack(config=self.config, pack_all=True, output_file=self.output_file)
-        self.clean_mounts()
+        self.pack(config=self.config, pack_all=True)

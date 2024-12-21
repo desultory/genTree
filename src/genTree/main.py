@@ -8,8 +8,7 @@ from .genTree import GenTree
 def main():
     arguments = [
         {
-            "flags": ["-c", "--config"],
-            "dest": "config_file",
+            "flags": ["config_file"],
             "help": "Path to the configuration file.",
             "action": "store",
             "default": "config.toml",

@@ -5,7 +5,7 @@ from tarfile import ReadError, TarFile
 from zenlib.logging import loggify
 from zenlib.util import colorize
 
-from .genTreeConfig import GenTreeConfig
+from .genTreeConfig import GenTreeConfig, SYSTEM_PACKAGES
 
 
 def get_world_set(config):
@@ -150,13 +150,17 @@ class GenTree:
 
     def perform_unmerge(self, config):
         """unmerges the packages in the unmerge list"""
-        if not getattr(config, "unmerge", None):
+        if not getattr(config, "unmerge", None) and not config.remove_system:
             return
 
+        packages = config.unmerge or []
+        if config.remove_system:
+            packages.extend(SYSTEM_PACKAGES)
+
         config.logger.info(
-            "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(config.unmerge), "red")
+            "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
         )
-        self.run_emerge(["--root", str(config.root), "--unmerge", *config.unmerge])
+        self.run_emerge(["--root", str(config.root), "--unmerge", *packages])
 
     def build(self, config, no_pack=False):
         """Builds all bases and branches under the current config

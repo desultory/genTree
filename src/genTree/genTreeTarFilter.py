@@ -63,10 +63,10 @@ class GenTreeTarFilter:
             return self.logger.debug("Filtering include file: %s", member.name)
         return member
 
-    def f_terminfo(self, member):
-        """filters terminfo files"""
-        if member.name.startswith("usr/share/terminfo/"):
-            return self.logger.debug("Filtering terminfo file: %s", member.name)
+    def f_completions(self, member):
+        """Filters shell completions"""
+        if member.name.startswith("usr/share/bash-completion/"):
+            return self.logger.debug("Filtering bash completion: %s", member.name)
         return member
 
     def f_vardbpkg(self, member):

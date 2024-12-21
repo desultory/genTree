@@ -135,6 +135,7 @@ class GenTree:
             return
 
         for package in config.unmerge:
+            self.logger.info(f"[{config.name}] Depcleaning package: {package}")
             self.run_emerge(["--root", str(config.root), "--depclean", package])
 
     def build(self, config):

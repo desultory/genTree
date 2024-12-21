@@ -1,6 +1,7 @@
+from pathlib import Path
 from shutil import rmtree
 from subprocess import run
-from tarfile import TarFile, ReadError
+from tarfile import ReadError, TarFile
 
 from zenlib.logging import loggify
 
@@ -36,7 +37,8 @@ def preserve_world(func):
 
 @loggify
 class GenTree:
-    def __init__(self, config_file="config.toml", *args, **kwargs):
+    def __init__(self, config_file="config.toml", output_file="out.tar", *args, **kwargs):
+        self.output_file = Path(output_file)
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
 
     def build_bases(self, config):
@@ -51,30 +53,57 @@ class GenTree:
         if str(config.root) == "/":
             raise RuntimeError("Cannot build in root directory.")
 
-        if config.root.exists() and config.clean_build:
-            config.logger.warning(f"[{config.name}] Cleaning root: {config.root}")
-            rmtree(config.root, ignore_errors=True)
+        if config.clean_build:
+            for root in ["root", "lower_root", "work_root", "upper_root"]:
+                root_dir = getattr(config, root)
+                if not root_dir.exists():
+                    continue
+                if root_dir.is_mount():
+                    config.logger.warning(f"[{config.name}] Unmounting root: {root_dir}")
+                    run(["umount", root_dir], check=True)
+                config.logger.warning(f"[{config.name}] Cleaning root: {root_dir}")
+                rmtree(root_dir, ignore_errors=True)
 
         config.check_dir("root")
         config.check_dir("config_root", create=False)
 
     @preserve_world
-    def deploy_base(self, config, base):
-        """Deploys a base over the config root"""
-        config.logger.info(f"[{base.name}] Unpacking base layer to build root: {config.root}")
+    def deploy_base(self, config, base, dest=None):
+        """Deploys bases over the config root. Recursively deploys bases of the base."""
+        dest = dest or config.lower_root
+        config.logger.info(f"[{base.name}] Unpacking base layer to lower build root: {dest}")
+        for sub_base in base.bases:
+            self.deploy_base(config=config, base=sub_base, dest=dest)
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
-                tar.extractall(config.root, filter=GenTreeTarFilter(logger=config.logger))
+                tar.extractall(dest, filter=GenTreeTarFilter(logger=config.logger))
         except ReadError as e:
             raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
 
     def deploy_bases(self, config):
-        """Deploys the bases for the current config"""
+        """Deploys the bases to the lower dir for the current config.
+        Mounts an overlayfs on the build root."""
         bases = getattr(config, "bases")
         if not bases:
             return
+        config.check_dir("lower_root")
         for base in bases:
             self.deploy_base(config=config, base=base)
+        config.check_dir("work_root")
+        config.check_dir("upper_root")
+        self.logger.info(f"[{config.name}] Mounting overlayfs on: {config.root}")
+        run(
+            [
+                "mount",
+                "-t",
+                "overlay",
+                "overlay",
+                "-o",
+                f"lowerdir={config.lower_root},upperdir={config.upper_root},workdir={config.work_root}",
+                config.root,
+            ],
+            check=True,
+        )
 
     def run_emerge(self, args):
         """Runs the emerge command with the passed args"""
@@ -100,6 +129,14 @@ class GenTree:
         if config.depclean:
             self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"])
 
+    def perform_unmerge(self, config):
+        """depcleans the packages in the unmerge list"""
+        if not getattr(config, "unmerge", None):
+            return
+
+        for package in config.unmerge:
+            self.run_emerge(["--root", str(config.root), "--depclean", package])
+
     def build(self, config):
         """Builds all bases and branches under the current config
         Then builds the packages in the config"""
@@ -112,21 +149,32 @@ class GenTree:
         self.prepare_build(config=config)
         self.deploy_bases(config=config)
         self.perform_emerge(config=config)
+        self.perform_unmerge(config=config)
         self.pack(config=config)
 
-    def pack(self, config):
+    def pack(self, config, pack_all=False, output_file=None):
         """Packs the built tree into {config.layer_archive}"""
-        config.logger.info(f"[{config.root}] Packing tree to: {config.layer_archive}")
-        with TarFile.open(config.layer_archive, "w") as tar:
-            for file in config.root.rglob("*"):
-                archive_path = file.relative_to(config.root)
+        pack_root = config.root if not config.bases or pack_all else config.upper_root
+        output_file = output_file or config.layer_archive
+        config.logger.info(f"[{pack_root}] Packing tree to: {output_file}")
+        with TarFile.open(output_file, "w") as tar:
+            for file in pack_root.rglob("*"):
+                archive_path = file.relative_to(pack_root)
                 if archive_path in tar.getnames():
-                    config.logger.warning(f"[{config.root}] Skipping duplicate file: {archive_path}")
+                    config.logger.warning(f"[{pack_root}] Skipping duplicate file: {archive_path}")
                     continue
-                config.logger.debug(f"[{config.root}] Adding file: {archive_path}")
-                tar.add(file, arcname=archive_path, filter=GenTreeTarFilter(logger=config.logger), recursive=False)
+                config.logger.debug(f"[{pack_root}] Adding file: {archive_path}")
+                tar.add(
+                    file,
+                    arcname=archive_path,
+                    filter=GenTreeTarFilter(logger=config.logger),
+                    recursive=False,
+                )
+
+        self.logger.info("Created layer archive: %s", output_file)
 
     def build_tree(self):
         """Builds the tree"""
         self.logger.info(f"[{self.config.name}] Building tree at: {self.config.root}")
         self.build(config=self.config)
+        self.pack(config=self.config, pack_all=True, output_file=self.output_file)

@@ -1,3 +1,4 @@
 name = "glibc"
 bases = ["config/base.toml"]
 packages = ["sys-libs/glibc"]
+unmerge = ["sys-devel/gcc"]

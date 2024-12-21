@@ -24,6 +24,7 @@ class GenTreeConfig:
     depclean: bool = True  # runs emerge --depclean --with-bdeps=n after pulling packages
     config: dict = None  # The config dictionary
     packages: list = None  # List of packages to install on the layer
+    unmerge: list = None  # List of packages to unmerge on the layer
     clean_build: bool = True  # Cleans the layer build dir before copying base layers
     rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent
@@ -53,6 +54,18 @@ class GenTreeConfig:
     @property
     def root(self):
         return self.base_build_dir.resolve() / self.name
+
+    @property
+    def lower_root(self):
+        return self.base_build_dir.resolve() / f"{self.name}_lower"
+
+    @property
+    def work_root(self):
+        return self.base_build_dir.resolve() / f"{self.name}_work"
+
+    @property
+    def upper_root(self):
+        return self.base_build_dir.resolve() / f"{self.name}_upper"
 
     @property
     def layer_archive(self):
@@ -86,15 +99,16 @@ class GenTreeConfig:
 
         with open(config, "rb") as f:
             self.config = load(f)
+        self.name = self.config["name"]
+        self.logger = self.logger.parent.getChild(self.name) if self.logger.parent else self.logger.getChild(self.name)
         self.logger.debug(f"[{config_file}] Loaded config: {self.config}")
 
         self.load_use()
+        self.bases = []
         for key, value in self.config.items():
-            if key in ["logger", "use", "inherit_use"]:
+            if key in ["name", "logger", "use", "inherit_use"]:
                 continue
             elif key == "bases":
-                if not getattr(self, "bases"):
-                    self.bases = []
                 self.add_base(value)
                 continue
             setattr(self, key, value)
@@ -125,6 +139,7 @@ class GenTreeConfig:
             path = Path(dirname)
             if not path.exists():
                 if create:
+                    self.logger.debug("Creating directory: %s", path)
                     path.mkdir(parents=True)
                 else:
                     raise FileNotFoundError(f"Directory does not exist: {path}")

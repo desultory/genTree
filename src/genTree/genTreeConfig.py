@@ -1,7 +1,7 @@
 from os import environ
 from pathlib import Path
 from tomllib import load
-from typing import Optional
+from typing import Optional, Union
 
 from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
@@ -13,6 +13,15 @@ ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
 
 INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
+
+
+def find_config(config_file):
+    """ Finds a config file included in the config module """
+    module_dir = Path(__file__).parent / "config"
+    config = module_dir / Path(config_file).with_suffix(".toml")
+    if not config.exists():
+        raise FileNotFoundError(f"Config file not found: {config}")
+    return config
 
 
 @validatedDataclass
@@ -83,13 +92,10 @@ class GenTreeConfig:
         return GenTreeTarFilter(logger=self.logger, **filter_args)
 
     @handle_plural
-    def add_base(self, base: Path):
-        """Adds a base config to the config
-        A base is a config which is used as an image base for the current config
-        """
-        base = Path(base)
-        if base.suffix != ".toml":
-            raise ValueError(f"Base file must be a toml file: {base}")
+    def add_base(self, base: Union[str, Path]):
+        """ Adds a base is a config which is used as an image base for the current config """
+        if not str(base).endswith(".toml"):
+            base = find_config(base)
         self.bases.append(GenTreeConfig(logger=self.logger, config_file=base, parent=self))
 
     def inherit_parent(self):

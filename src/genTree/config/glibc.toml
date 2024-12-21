@@ -1,0 +1,3 @@
+name = "glibc"
+bases = ["base"]
+packages = ["sys-libs/glibc"]

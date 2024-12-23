@@ -9,7 +9,7 @@ PYTHON_COMPAT=( python3_{11..13} )
 inherit distutils-r1 git-r3
 
 DESCRIPTION="Gentoo rootfs tree generator"
-HOMEPAGE="https://github.com/desultory/genTroee"
+HOMEPAGE="https://github.com/desultory/genTree"
 EGIT_REPO_URI="https://github.com/desultory/${PN}"
 
 LICENSE="GPL-2"

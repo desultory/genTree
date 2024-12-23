@@ -5,7 +5,8 @@ from tarfile import ReadError, TarFile
 from zenlib.logging import loggify
 from zenlib.util import colorize
 
-from .genTreeConfig import GenTreeConfig, SYSTEM_PACKAGES
+from .genTreeConfig import SYSTEM_PACKAGES, GenTreeConfig
+from .genTreeTarFilter import WhiteoutError
 
 
 def get_world_set(config):
@@ -88,9 +89,24 @@ class GenTree:
         )
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
-                tar.extractall(dest, filter="data")
+                tar.extractall(dest, filter=config.whiteout_filter)
         except ReadError as e:
             raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
+
+        self.apply_whiteouts(dest, config.whiteouts)
+
+    def apply_whiteouts(self, lower_root, whiteouts):
+        """Applies whiteouts to the lower root"""
+        for whiteout in whiteouts:
+            whiteout_path = lower_root / whiteout
+            if whiteout_path.exists(follow_symlinks=False):
+                self.logger.info("Applying whiteout: %s", whiteout_path)
+                if whiteout_path.is_dir():
+                    rmtree(whiteout_path)
+                else:
+                    whiteout_path.unlink()
+            else:
+                self.logger.warning("Whiteout target not found: %s", colorize(whiteout_path, "red"))
 
     def mount_overlay(self, config):
         """Mounts an overlayfs on the build root"""
@@ -138,7 +154,6 @@ class GenTree:
         """Performs the emerge command for the current config"""
         if not getattr(config, "packages", None):
             config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
-            config.built = True
             return
 
         emerge_args = config.get_emerge_args()
@@ -197,12 +212,16 @@ class GenTree:
             for file in pack_root.rglob("*"):
                 archive_path = file.relative_to(pack_root)
                 config.logger.log(5, f"[{pack_root}] Adding file: {archive_path}")
-                tar.add(
-                    file,
-                    arcname=archive_path,
-                    filter=config.tar_filter,
-                    recursive=False,
-                )
+                try:
+                    tar.add(
+                        file,
+                        arcname=archive_path,
+                        filter=config.tar_filter,
+                        recursive=False,
+                    )
+                except WhiteoutError as e:
+                    self.logger.debug("Whiteout detected: %s", e)
+                    tar.addfile(e.whiteout)
 
         self.logger.info(
             "[%s] Created archive: %s",

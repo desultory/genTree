@@ -7,6 +7,7 @@ from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
 
 from .genTreeTarFilter import GenTreeTarFilter
+from .whiteoutFilter import WhiteoutFilter
 from .use_flags import UseFlags
 
 SYSTEM_PACKAGES = [
@@ -98,12 +99,15 @@ class GenTreeConfig:
     # portage args
     config_root: Path = None
     # Tar filters
-    tar_filter_dev: bool = True
-    tar_filter_man: bool = True
-    tar_filter_docs: bool = True
-    tar_filter_include: bool = True
-    tar_filter_completions: bool = True
-    tar_filter_vardbpkg: bool = False
+    tar_filter_whiteout: bool = True  # Filter whiteout files
+    tar_filter_dev: bool = True  # Filters character and block devices
+    tar_filter_man: bool = True  # Filters manual pages
+    tar_filter_docs: bool = True  # Filters documentation
+    tar_filter_include: bool = True  # Filters included headers
+    tar_filter_completions: bool = True  # Filters shell completions
+    tar_filter_vardbpkg: bool = False  # Filters /var/db/pkg
+    # whiteout
+    whiteouts: list = None  # List of paths to "whiteout" in the lower layer
 
     def __post_init__(self, *args, **kwargs):
         self.load_config(self.config_file or kwargs.get("config_file"))
@@ -135,7 +139,11 @@ class GenTreeConfig:
         filter_args = {}
         for f_name in [a.replace("tar_filter_", "") for a in self.__dataclass_fields__ if a.startswith("tar_filter_")]:
             filter_args[f"filter_{f_name}"] = getattr(self, f"tar_filter_{f_name}")
-        return GenTreeTarFilter(logger=self.logger, **filter_args)
+        return GenTreeTarFilter(owner=self, logger=self.logger, **filter_args)
+
+    @property
+    def whiteout_filter(self):
+        return WhiteoutFilter(logger=self.logger, whiteouts=self.whiteouts)
 
     @property
     def file_display_name(self):
@@ -181,7 +189,7 @@ class GenTreeConfig:
             self.inherit_parent()
 
         for key, value in self.config.items():
-            if key in ["name", "logger", "use", "bases"]:
+            if key in ["name", "logger", "use", "bases", "whiteouts"]:
                 continue
             setattr(self, key, value)
 
@@ -190,6 +198,8 @@ class GenTreeConfig:
         self.bases = []
         for base in self.config.get("bases", []):
             self.add_base(base)
+
+        self.whiteouts = self.config.get("whiteouts", [])
 
     def load_use(self):
         """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""

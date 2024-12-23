@@ -1,5 +1,5 @@
 from pathlib import Path
-from tarfile import data_filter
+from tarfile import TarInfo, data_filter
 
 from zenlib.logging import loggify
 
@@ -10,11 +10,41 @@ def get_relative_prefix(path):
     return Path("/".join([".." for _ in path.parts]))
 
 
+class WhiteoutError(Exception):
+    def __init__(self, member):
+        self.member = member
+        super().__init__(f"Whiteout detected: {member}")
+
+    @property
+    def whiteout(self):
+        old_path = Path(self.member.name)
+        return TarInfo(name=str(old_path.with_name(f".wh.{old_path.name}")))
+
+
+class OpaqueWhiteoutError(Exception):
+    def __init__(self, member):
+        self.member = member
+        super().__init__(f"Opaque whiteout detected: {member}")
+
+    @property
+    def parent_dir(self):
+        """Returns a TarInfo object for the parent directory of the whiteout"""
+        from tarfile import DIRTYPE
+
+        return TarInfo(name=str(Path(self.member.name).parent), type=DIRTYPE)
+
+    @property
+    def opaque(self):
+        return TarInfo(name=str(Path(self.member.name).parent / ".wh..wh..opq"))
+
+
 @loggify
 class GenTreeTarFilter:
     DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc"]
+    FILTERS = ["whiteout", "dev", "man", "docs", "include", "completions", "vardbpkg"]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, owner, *args, **kwargs):
+        self.owner = owner
         for name in kwargs.copy():
             if name.startswith("filter_"):
                 setattr(self, name, kwargs.pop(name))
@@ -22,11 +52,9 @@ class GenTreeTarFilter:
 
     @property
     def filters(self):
-        for f in dir(self):
-            if f.startswith("filter_"):
-                filter_name = f.replace("filter_", "")
-                if getattr(self, f"filter_{filter_name}"):
-                    yield getattr(self, f"f_{filter_name}")
+        for f in self.FILTERS:
+            if getattr(self, f"filter_{f}"):
+                yield getattr(self, f"f_{f}")
 
     def __call__(self, member, *args, **kwargs):
         member = self.rewrite_absolute_symlinks(member)
@@ -38,6 +66,23 @@ class GenTreeTarFilter:
         if args:
             member = data_filter(member, *args, **kwargs)
         return member
+
+    def f_whiteout(self, member):
+        """Detects whiteouts created by the overlay as character devices
+        or empty files with the 'trusted.overlay.whiteout' xattr.
+
+        Creates a new tar member which is an empty file prefixed with ".wh."
+        """
+        whiteout = False
+        if member.ischr() and member.devmajor == 0 and member.devminor == 0:
+            self.logger.debug("Detected chardev whiteout: %s", member.name)
+            whiteout = True
+        if member.size == 0 and member.pax_headers.get("trusted.overlay.whiteout"):
+            self.logger.debug("Detected empty file whiteout: %s", member.name)
+            whiteout = True
+        if not whiteout:
+            return member
+        raise WhiteoutError(member)
 
     def f_dev(self, member):
         """Filters device files"""

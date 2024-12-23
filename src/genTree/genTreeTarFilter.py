@@ -41,7 +41,7 @@ class OpaqueWhiteoutError(Exception):
 @loggify
 class GenTreeTarFilter:
     DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc"]
-    FILTERS = ["whiteout", "dev", "man", "docs", "include", "completions", "vardbpkg"]
+    FILTERS = ["whiteout", "dev", "man", "docs", "include", "charmaps", "completions", "vardbpkg"]
 
     def __init__(self, owner, *args, **kwargs):
         self.owner = owner
@@ -88,6 +88,12 @@ class GenTreeTarFilter:
         """Filters device files"""
         if member.ischr() or member.isblk():
             return self.logger.debug("Filtering device file: %s", member.name)
+        return member
+
+    def f_charmaps(self, member):
+        """Filters charmaps"""
+        if member.name.startswith("usr/share/i18n/charmaps/"):
+            return self.logger.debug("Filtering charmap: %s", member.name)
         return member
 
     def f_man(self, member):

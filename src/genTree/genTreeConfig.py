@@ -57,6 +57,7 @@ SYSTEM_PACKAGES = [
 
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
+PORTAGE_BOOLS = ["nodeps"]
 
 INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
 
@@ -77,7 +78,7 @@ class GenTreeConfig:
     config_file: Path = None  # Path to the config file
     parent: Optional["GenTreeConfig"] = None
     bases: list = None  # List of base layer configs
-    depclean: bool = True  # runs emerge --depclean --with-bdeps=n after pulling packages
+    depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
     remove_system: bool = False  # Removes system packages from the layer
     config: dict = None  # The config dictionary
     packages: list = None  # List of packages to install on the layer
@@ -98,12 +99,14 @@ class GenTreeConfig:
     use: UseFlags = None
     # portage args
     config_root: Path = None
+    nodeps: bool = False
     # Tar filters
     tar_filter_whiteout: bool = True  # Filter whiteout files
     tar_filter_dev: bool = True  # Filters character and block devices
     tar_filter_man: bool = True  # Filters manual pages
     tar_filter_docs: bool = True  # Filters documentation
     tar_filter_include: bool = True  # Filters included headers
+    tar_filter_charmaps: bool = True  # Filters charmaps
     tar_filter_completions: bool = True  # Filters shell completions
     tar_filter_vardbpkg: bool = False  # Filters /var/db/pkg
     # whiteout
@@ -239,6 +242,9 @@ class GenTreeConfig:
         args = ["--root", str(self.root)]
         if config_root := self.config_root:
             args.extend(["--config-root", str(config_root.resolve())])
+        for bool_arg in PORTAGE_BOOLS:
+            if getattr(self, bool_arg):
+                args.append(f"--{bool_arg}")
         args += [*self.packages]
         return args
 

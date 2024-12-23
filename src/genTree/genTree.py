@@ -5,7 +5,7 @@ from tarfile import ReadError, TarFile
 from zenlib.logging import loggify
 from zenlib.util import colorize
 
-from .genTreeConfig import SYSTEM_PACKAGES, GenTreeConfig
+from .genTreeConfig import GenTreeConfig
 from .genTreeTarFilter import WhiteoutError
 
 
@@ -183,13 +183,10 @@ class GenTree:
 
     def perform_unmerge(self, config):
         """unmerges the packages in the unmerge list"""
-        if not getattr(config, "unmerge", None) and not config.remove_system:
+        if not getattr(config, "unmerge", None):
             return
 
         packages = config.unmerge or []
-        if config.remove_system:
-            packages.extend(SYSTEM_PACKAGES)
-
         config.logger.info(
             "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
         )

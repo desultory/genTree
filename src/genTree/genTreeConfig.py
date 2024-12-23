@@ -10,51 +10,6 @@ from .genTreeTarFilter import GenTreeTarFilter
 from .use_flags import UseFlags
 from .whiteoutFilter import WhiteoutFilter
 
-SYSTEM_PACKAGES = [
-    "app-arch/xz-utils",
-    "sys-devel/gnuconfig",
-    "app-shells/bash",
-    "sys-apps/coreutils",
-    "sys-libs/readline",
-    "sys-apps/util-linux",
-    "sys-apps/systemd-utils",
-    "sys-fs/udev-init-scripts",
-    "sys-libs/pam",
-    "sys-auth/pambase",
-    "app-arch/bzip2",
-    "sys-devel/gcc",
-    "sys-devel/gcc-config",
-    "sys-apps/gawk",
-    "sys-apps/attr",
-    "sys-apps/grep",
-    "app-arch/gzip",
-    "sys-apps/findutils",
-    "sys-apps/kmod",
-    "sys-apps/sed",
-    "sys-apps/less",
-    "sys-fs/e2fsprogs",
-    "sys-process/psmisc",
-    "sys-devel/patch",
-    "dev-build/make",
-    "net-misc/iputils",
-    "net-misc/wget",
-    "sys-apps/which",
-    "sys-process/procps",
-    "sys-apps/elfix",
-    "app-admin/eselect",
-    "sys-apps/iproute2",
-    "sys-apps/man-pages",
-    "app-arch/tar",
-    "dev-lang/python",
-    "dev-lang/python-exec",
-    "dev-lang/python-exec-conf",
-    "dev-python/ensurepip-pip",
-    "sys-libs/ncurses",
-    "dev-python/gentoo-common",
-    "sys-apps/gentoo-functions",
-    "sys-apps/portage",
-]
-
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
 PORTAGE_BOOLS = ["nodeps"]
@@ -79,7 +34,6 @@ class GenTreeConfig:
     parent: Optional["GenTreeConfig"] = None
     bases: list = None  # List of base layer configs
     depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
-    remove_system: bool = False  # Removes system packages from the layer
     config: dict = None  # The config dictionary
     packages: list = None  # List of packages to install on the layer
     unmerge: list = None  # List of packages to unmerge on the layer

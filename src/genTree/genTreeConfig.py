@@ -7,8 +7,8 @@ from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
 
 from .genTreeTarFilter import GenTreeTarFilter
-from .whiteoutFilter import WhiteoutFilter
 from .use_flags import UseFlags
+from .whiteoutFilter import WhiteoutFilter
 
 SYSTEM_PACKAGES = [
     "app-arch/xz-utils",
@@ -108,6 +108,7 @@ class GenTreeConfig:
     tar_filter_vardbpkg: bool = False  # Filters /var/db/pkg
     # whiteout
     whiteouts: list = None  # List of paths to "whiteout" in the lower layer
+    opaques: list = None  # List of paths to "opaque" in the lower layer
 
     def __post_init__(self, *args, **kwargs):
         self.load_config(self.config_file or kwargs.get("config_file"))
@@ -143,7 +144,7 @@ class GenTreeConfig:
 
     @property
     def whiteout_filter(self):
-        return WhiteoutFilter(logger=self.logger, whiteouts=self.whiteouts)
+        return WhiteoutFilter(logger=self.logger, whiteouts=self.whiteouts, opaques=self.opaques)
 
     @property
     def file_display_name(self):
@@ -200,6 +201,7 @@ class GenTreeConfig:
             self.add_base(base)
 
         self.whiteouts = self.config.get("whiteouts", [])
+        self.opaques = self.config.get("opaques", [])
 
     def load_use(self):
         """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""

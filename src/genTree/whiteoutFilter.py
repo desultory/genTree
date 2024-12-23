@@ -8,12 +8,26 @@ from zenlib.logging import loggify
 class WhiteoutFilter:
     def __init__(self, *args, **kwargs):
         self.whiteouts = kwargs.pop("whiteouts", [])
+        self.opaques = kwargs.pop("opaques", [])
         super().__init__(*args, **kwargs)
 
     def __call__(self, member, *args, **kwargs):
-        if member := self.detect_whiteout(member):
-            if args:
-                return data_filter(member, *args, **kwargs)
+        if member := self.detect_opaque(member):
+            if member := self.detect_whiteout(member):
+                if args:
+                    return data_filter(member, *args, **kwargs)
+        return member
+
+    def detect_opaque(self, member):
+        """Detects an opaque file
+        This is represented by an empty file named .wh..wh..opq
+        Only returns the member if it is not an opaque.
+        """
+        member_path = Path(member.name)
+        if member_path.name == ".wh..wh..opq" and member.size == 0 and member.isreg():
+            self.logger.debug("Detected opaque: %s", member.name)
+            self.opaques.append(str(member_path.parent))
+            return None
         return member
 
     def detect_whiteout(self, member):

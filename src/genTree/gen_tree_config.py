@@ -6,9 +6,9 @@ from typing import Optional, Union
 from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
 
-from .genTreeTarFilter import GenTreeTarFilter
+from .gen_tree_tar_filter import GenTreeTarFilter
 from .use_flags import UseFlags
-from .whiteoutFilter import WhiteoutFilter
+from .whiteout_filter import WhiteoutFilter
 
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
@@ -54,6 +54,8 @@ class GenTreeConfig:
     # portage args
     config_root: Path = "/var/lib/genTree/config_roots/default"
     nodeps: bool = False
+    # bind mounts
+    bind_system_repos: bool = True  # bind /var/db/repos on the config root
     # Tar filters
     tar_filter_whiteout: bool = True  # Filter whiteout files
     tar_filter_dev: bool = True  # Filters character and block devices

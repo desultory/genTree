@@ -5,8 +5,9 @@ from tarfile import ReadError, TarFile
 from zenlib.logging import loggify
 from zenlib.util import colorize
 
-from .genTreeConfig import GenTreeConfig
+from .gen_tree_config import GenTreeConfig
 from .genTreeTarFilter import WhiteoutError
+from .mount_mixins import MountMixins, bind_mount_repos
 
 
 def get_world_set(config):
@@ -35,8 +36,9 @@ def preserve_world(func):
     return wrapper
 
 
+
 @loggify
-class GenTree:
+class GenTree(MountMixins):
     def __init__(self, config_file="config.toml", *args, **kwargs):
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
 
@@ -126,27 +128,6 @@ class GenTree:
             else:
                 self.logger.warning("Whiteout target not found: %s", colorize(whiteout_path, "red"))
 
-    def mount_overlay(self, config):
-        """Mounts an overlayfs on the build root"""
-        config.check_dir([f"{root}_root" for root in ["lower", "work", "upper"]])
-        self.logger.info(
-            "[%s] Mounting overlayfs on: %s",
-            colorize(config.name, "blue"),
-            colorize(config.root, "magenta", bold=True),
-        )
-        run(
-            [
-                "mount",
-                "-t",
-                "overlay",
-                "overlay",
-                "-o",
-                f"lowerdir={config.lower_root},upperdir={config.upper_root},workdir={config.work_root}",
-                config.root,
-            ],
-            check=True,
-        )
-
     def deploy_bases(self, config):
         """Deploys the bases to the lower dir for the current config.
         Mounts an overlayfs on the build root."""
@@ -158,7 +139,8 @@ class GenTree:
             self.deploy_base(config=config, base=base)
         self.mount_overlay(config)
 
-    def run_emerge(self, args):
+    @bind_mount_repos
+    def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
         self.logger.info("Running emerge with args: " + " ".join(args))
         ret = run(["emerge", *args], capture_output=True)
@@ -176,10 +158,10 @@ class GenTree:
 
         emerge_args = config.get_emerge_args()
         config.set_portage_env()
-        self.run_emerge(emerge_args)
+        self.run_emerge(emerge_args, config=config)
 
         if config.depclean:
-            self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"])
+            self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"], config=config)
 
     def perform_unmerge(self, config):
         """unmerges the packages in the unmerge list"""
@@ -190,7 +172,7 @@ class GenTree:
         config.logger.info(
             "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
         )
-        self.run_emerge(["--root", str(config.root), "--unmerge", *packages])
+        self.run_emerge(["--root", str(config.root), "--unmerge", *packages], config=config)
 
     def build(self, config, no_pack=False):
         """Builds all bases and branches under the current config

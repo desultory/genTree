@@ -7,14 +7,26 @@ from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
 
 from .gen_tree_tar_filter import GenTreeTarFilter
-from .portage_types import UseFlags, FlagBool
+from .portage_types import FlagBool, PortageFlags
 from .whiteout_filter import WhiteoutFilter
 
-ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
-ENV_VAR_STRS = ["use"]
-PORTAGE_BOOLS = ["nodeps", "with_bdeps"]
+DEFAULT_FEATURES = [
+    "buildpkg",
+    "binpkg-multi-instance",
+    "parallel-fetch",
+    "parallel-install",
+    "-ebuild-locks",
+    "-merge-wait",
+    "-merge-sync",
+]
 
-INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
+ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
+ENV_VAR_INHERITED = [*ENV_VAR_DIRS, "features"]
+ENV_VARS = [*ENV_VAR_INHERITED, "use"]
+PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg"]
+PORTAGE_STRS = ["jobs", "config_root"]
+
+INHERITED_CONFIG = [*ENV_VAR_INHERITED, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
 
 
 def find_config(config_file):
@@ -50,10 +62,15 @@ class GenTreeConfig:
     pkgdir: Path = "/var/lib/genTree/pkgdir"
     portage_tmpdir: Path = "/var/lib/genTree/portage_tmpdir"
     # Other environment variables
-    use: UseFlags = None
+    use: PortageFlags = None
+    features: PortageFlags = None
+    binpkg_format: str = "gpkg"
     # portage args
     config_root: Path = "/var/lib/genTree/config_roots/default"
+    jobs: int = 4
     with_bdeps: FlagBool = False
+    usepkg: FlagBool = True
+    verbose: bool = True
     nodeps: bool = False
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
@@ -151,10 +168,11 @@ class GenTreeConfig:
             self.inherit_parent()
 
         for key, value in self.config.items():
-            if key in ["name", "logger", "use", "bases", "whiteouts"]:
+            if key in ["name", "logger", "use", "features", "bases", "whiteouts"]:
                 continue
             setattr(self, key, value)
 
+        self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
         self.load_use()
 
         self.bases = []
@@ -169,7 +187,7 @@ class GenTreeConfig:
         if inherit_use := self.config.get("inherit_use"):
             self.inherit_use = inherit_use
         parent_use = getattr(self.parent, "use") if self.inherit_use else set()
-        config_use = UseFlags(self.config.get("use", ""))
+        config_use = PortageFlags(self.config.get("use", ""))
         if self.inherit_use:
             self.use = parent_use | config_use
         else:
@@ -198,8 +216,9 @@ class GenTreeConfig:
     def get_emerge_args(self):
         """Gets emerge args for the current config"""
         args = ["--root", str(self.root)]
-        if config_root := self.config_root:
-            args.extend(["--config-root", str(config_root.resolve())])
+        for str_arg in PORTAGE_STRS:
+            if getattr(self, str_arg):
+                args.extend([f"--{str_arg.replace('_', '-')}", str(getattr(self, str_arg))])
         for bool_arg in PORTAGE_BOOLS:
             if isinstance(getattr(self, bool_arg), FlagBool):
                 args.append(f"--{bool_arg.replace('_', '-')}={getattr(self, bool_arg)}")
@@ -212,10 +231,18 @@ class GenTreeConfig:
         """Sets portage environment variables based on the config"""
         for env_dir in ENV_VAR_DIRS:
             self.check_dir(env_dir)
-            env_name = env_dir.upper()
-            env_path = getattr(self, env_dir).resolve()
-            self.logger.debug("Setting environment variable: %s=%s", env_name, env_path)
-            environ[env_name] = str(env_path)
+
+        for env in ENV_VARS:
+            if env in ENV_VAR_DIRS:
+                env_value = getattr(self, env).resolve()
+            else:
+                env_value = getattr(self, env)
+            env = env.upper()
+            if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
+                self.logger.debug("Skipping unset environment variable: %s", env)
+                continue
+            self.logger.debug("Setting environment variable: %s=%s", env, env_value)
+            environ[env] = str(env_value)
 
         if use_flags := self.use:
             self.logger.info("Setting USE flags: %s", use_flags)

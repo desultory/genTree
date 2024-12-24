@@ -19,7 +19,7 @@ def bind_mount_repos(method):
 
 
 class MountMixins:
-    def mount_overlay(self, config):
+    def mount_root_overlay(self, config):
         """Mounts an overlayfs on the build root"""
         config.check_dir([f"{root}_root" for root in ["lower", "work", "upper"]])
         self.logger.info(

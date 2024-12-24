@@ -114,7 +114,7 @@ class GenTree(MountMixins, OCIMixins):
                 continue
             self.deploy_base(config=config, base=base)
             deployed_bases.append(base.name)
-        self.mount_overlay(config)
+        self.mount_root_overlay(config)
 
     @bind_mount_repos
     def run_emerge(self, args, config: GenTreeConfig = None):

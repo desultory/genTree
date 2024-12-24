@@ -1,0 +1,5 @@
+name = "coreutils"
+bases = ["base"]
+
+packages = ["sys-apps/coreutils"]
+

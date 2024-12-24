@@ -52,7 +52,7 @@ class GenTreeConfig:
     # Other environment variables
     use: UseFlags = None
     # portage args
-    config_root: Path = None
+    config_root: Path = "/var/lib/genTree/config_roots/default"
     nodeps: bool = False
     # Tar filters
     tar_filter_whiteout: bool = True  # Filter whiteout files

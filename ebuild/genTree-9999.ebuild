@@ -18,3 +18,16 @@ SLOT="0"
 RDEPEND="
 	>=dev-python/zenlib-9999[${PYTHON_USEDEP}]
 "
+
+
+python_install_all() {
+	distutils-r1_python_install_all
+
+	# Create /var/lib/genTree
+	keepdir /var/lib/genTree
+
+	# Install the default config root
+	insinto /var/lib/genTree/config_roots/default
+	doins -r config_roots/default/*
+}
+

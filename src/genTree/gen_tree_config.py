@@ -56,6 +56,7 @@ class GenTreeConfig:
     nodeps: bool = False
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
+    system_repos: Path = "/var/db/repos"
     # Tar filters
     tar_filter_whiteout: bool = True  # Filter whiteout files
     tar_filter_dev: bool = True  # Filters character and block devices

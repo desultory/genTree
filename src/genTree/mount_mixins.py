@@ -51,7 +51,7 @@ class MountMixins:
             colorize(config.name, "blue"),
             colorize(config_repos, "magenta"),
         )
-        run(["mount", "--bind", "/var/db/repos", config_repos, "-o", "ro"], check=True)
+        run(["mount", "--bind", config.system_repos, config_repos, "-o", "ro"], check=True)
 
     def unmount_bind_repos(self, config):
         """Unmounts the bind mount of /var/db/repos over the config root"""

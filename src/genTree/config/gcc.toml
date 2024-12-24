@@ -2,3 +2,4 @@ name = "gcc"
 bases = ["base"]
 
 packages = ["sys-devel/gcc"]
+nodeps = true

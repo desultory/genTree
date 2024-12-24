@@ -7,12 +7,12 @@ from zenlib.types import validatedDataclass
 from zenlib.util import handle_plural, pretty_print
 
 from .gen_tree_tar_filter import GenTreeTarFilter
-from .use_flags import UseFlags
+from .portage_types import UseFlags, FlagBool
 from .whiteout_filter import WhiteoutFilter
 
 ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
 ENV_VAR_STRS = ["use"]
-PORTAGE_BOOLS = ["nodeps"]
+PORTAGE_BOOLS = ["nodeps", "with_bdeps"]
 
 INHERITED_CONFIG = [*ENV_VAR_DIRS, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
 
@@ -53,6 +53,7 @@ class GenTreeConfig:
     use: UseFlags = None
     # portage args
     config_root: Path = "/var/lib/genTree/config_roots/default"
+    with_bdeps: FlagBool = False
     nodeps: bool = False
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
@@ -200,8 +201,10 @@ class GenTreeConfig:
         if config_root := self.config_root:
             args.extend(["--config-root", str(config_root.resolve())])
         for bool_arg in PORTAGE_BOOLS:
-            if getattr(self, bool_arg):
-                args.append(f"--{bool_arg}")
+            if isinstance(getattr(self, bool_arg), FlagBool):
+                args.append(f"--{bool_arg.replace('_', '-')}={getattr(self, bool_arg)}")
+            elif getattr(self, bool_arg):
+                args.append(f"--{bool_arg.replace('_', '-')}")
         args += [*self.packages]
         return args
 

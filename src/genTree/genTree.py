@@ -80,11 +80,16 @@ class GenTree(MountMixins, OCIMixins):
         config.check_dir("config_root", create=False)
 
     @preserve_world
-    def deploy_base(self, config, base, dest=None):
+    def deploy_base(self, config, base, dest=None, deployed_bases=None):
         """Deploys bases over the config root. Recursively deploys bases of the base."""
         dest = dest or config.lower_root
+        deployed_bases = deployed_bases or []
         for sub_base in base.bases:
-            self.deploy_base(config=config, base=sub_base, dest=dest)
+            if sub_base.name in deployed_bases:
+                self.logger.debug("Skipping base as it has already been deployed: %s", sub_base.name)
+                continue
+            self.deploy_base(config=config, base=sub_base, dest=dest, deployed_bases=deployed_bases)
+            deployed_bases.append(sub_base.name)
         config.logger.info(
             "[%s] Unpacking base layer to build root: %s",
             colorize(base.name, "blue"),
@@ -100,19 +105,21 @@ class GenTree(MountMixins, OCIMixins):
         self.apply_opaques(dest, config.opaques)
         self.apply_whiteouts(dest, config.whiteouts)
 
-    def deploy_bases(self, config):
+    def deploy_bases(self, config, deployed_bases=None):
         """Deploys the bases to the lower dir for the current config.
         Mounts an overlayfs on the build root."""
         bases = getattr(config, "bases")
         if not bases:
             return
+        # Add something so subsequent deploys don't init a new list
+        deployed_bases = deployed_bases or [config.name]
+
         config.check_dir("lower_root")
-        deployed_bases = []
         for base in bases:
             if base.name in deployed_bases:
-                self.logger.debug("Skipping base as it has already been deployed: %s", base.name)
+                config.logger.debug("Skipping base as it has already been deployed: %s", base.name)
                 continue
-            self.deploy_base(config=config, base=base)
+            self.deploy_base(config=config, base=base, deployed_bases=deployed_bases)
             deployed_bases.append(base.name)
         self.mount_root_overlay(config)
 

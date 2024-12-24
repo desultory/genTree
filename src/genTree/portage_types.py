@@ -1,3 +1,20 @@
+
+class FlagBool:
+    """A boolean that represents as 'y' or 'n'"""
+
+    def __init__(self, value):
+        self.value = bool(value)
+
+    def __bool__(self):
+        return self.value
+
+    def __call__(self):
+        return self.value
+
+    def __str__(self):
+        return 'y' if self else 'n'
+
+
 class UseFlags(set):
     def __init__(self, flags):
         """ Splits the flags by whitespace and adds them to the set """

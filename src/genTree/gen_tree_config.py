@@ -36,11 +36,15 @@ INHERITED_CONFIG = [
 ]
 
 CHILD_RESTRICTED = [
-        "seed",
-        "seed_dir",
-        "build_dir",
-        "pkgdir"
-    ]
+    "seed",
+    "seed_dir",
+    "_seed_dir",
+    "build_dir",
+    "_build_dir",
+    "pkgdir",
+    "_pkgdir",
+    "confroot",
+]
 
 
 def find_config(config_file):
@@ -67,9 +71,10 @@ class GenTreeConfig:
     rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent
     # The following directories can only be set in the top level config
-    seed_dir: Path = "~/.local/share/genTree/seeds"  # Directory where seeds are read from and used
-    build_dir: Path = "~/.local/share/genTree/builds"  # Directory where builds are performed and stored
-    pkgdir: Path = "~/.local/share/genTree/pkgdir"  # Directory where packages are stored
+    conf_root: Path = "~/.local/share/genTree"  # The root of the genTree config
+    _seed_dir: Path = None  # Directory where seeds are read from and used
+    _build_dir: Path = None  # Directory where builds are performed and stored
+    _pkgdir: Path = None  # Directory where packages are stored
     config_overlay: Path = None  # Path to the dir to mount over /etc/portage on the sysroot
     # Profiles can be set in any config and are applied before the emerge
     profile: str = "default/linux/amd64/23.0"
@@ -106,6 +111,21 @@ class GenTreeConfig:
         self.load_config(self.config_file or kwargs.get("config_file"))
         self.process_kwargs(kwargs)
 
+    def on_conf_root(self, path):
+        return Path(self.conf_root).expanduser().resolve() / path
+
+    @property
+    def pkgdir(self):
+        return self._pkgdir or self.on_conf_root("pkgdir")
+
+    @property
+    def build_dir(self):
+        return self._build_dir or self.on_conf_root("builds")
+
+    @property
+    def seed_dir(self):
+        return self._seed_dir or self.on_conf_root("seeds")
+
     @property
     def overlay_root(self):
         return Path("/builds") / self.name
@@ -128,7 +148,7 @@ class GenTreeConfig:
 
     @property
     def sysroot(self):
-        return self.seed_dir.expanduser().resolve() / f"{self.seed}_sysroot"
+        return self.seed_dir / f"{self.seed}_sysroot"
 
     @property
     def upper_seed_root(self):
@@ -144,9 +164,7 @@ class GenTreeConfig:
 
     @property
     def layer_archive(self):
-        return self.output_file or self.overlay_root.with_suffix(
-            self.archive_extension
-        )
+        return self.output_file or self.overlay_root.with_suffix(self.archive_extension)
 
     @property
     def tar_filter(self):
@@ -249,10 +267,8 @@ class GenTreeConfig:
 
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
-        if str(self.sysroot) == "/":
-            raise ValueError("Cannot set portage profile in /")
         self.logger.info(
-            "[%s] Setting portage profile: %s", colorize(self.profile_repo, "yellow"), colorize(self.profile, "green")
+            "[%s] Setting portage profile: %s", colorize(self.profile_repo, "yellow"), colorize(self.profile, "blue")
         )
 
         profile_sym = Path("/etc/portage/make.profile")

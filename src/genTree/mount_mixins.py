@@ -29,6 +29,8 @@ class MountMixins:
 
     def mount_seed_overlay(self):
         """Mounts an overlayfs on the seed root"""
+        if not self.config.seed_root.exists():
+            raise FileNotFoundError(f"Seed root not found: {self.config.seed_root}")
         self.config.check_dir(["upper_seed_root", "work_seed_root", "sysroot"])
         self.logger.info("Mounting overlayfs on: %s", colorize(self.config.sysroot, "cyan", bold=True))
         run(

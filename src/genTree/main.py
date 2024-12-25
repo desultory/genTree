@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from os import getuid
 from pathlib import Path
 from shutil import copytree
 from tarfile import TarFile
@@ -42,6 +41,12 @@ def import_seed():
             "action": "store",
             "nargs": "?",
         },
+        {
+            "flags": ["conf_root"],
+            "help": "Root directory of the configuration.",
+            "action": "store",
+            "default": "~/.local/share/genTree",
+        },
     ]
 
     kwargs = get_kwargs(
@@ -51,21 +56,21 @@ def import_seed():
     seed = Path(kwargs.pop("seed"))
     name = kwargs.pop("name", seed.stem.split(".")[0])
 
-    if getuid() != 0:
-        seeds_dir = Path("~/.local/share/genTree/seeds").expanduser().resolve()
-    else:
-        seeds_dir = Path("/var/lib/genTree/seeds")
-
+    seeds_dir = Path(kwargs.pop("conf_root")).expanduser().resolve() / "seeds"
+    logger.debug(f"Seeds directory: {seeds_dir}")
     seed_dir = seeds_dir / name
+    logger.debug(f"Seed directory: {seed_dir}")
 
     if seed_dir.exists():
         raise FileExistsError(f"Seed already exists: {seed_dir}")
 
     if seed.is_dir() and seed.exists():
+        logger.info(f"Copying seed directory: {seed} -> {seed_dir}")
         copytree(seed, seed_dir)
     else:
         with TarFile.open(seed) as tar:
+            logger.info(f"Extracting seed archive: {seed} -> {seed_dir}")
             tar.extractall(seed_dir, filter=GenTreeTarFilter(logger=logger, filter_dev=True))
 
-    logger.info(f"Seed imported: {seed_dir}")
+    logger.info(f"[{name}] Seed imported: {seed_dir}")
 

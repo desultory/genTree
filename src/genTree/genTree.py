@@ -190,7 +190,7 @@ class GenTree(MountMixins, OCIMixins):
         config.logger.info(
             "[%s] Packing tree to: %s",
             colorize(config.name, "blue", bold=True),
-            colorize(config.layer_archive, "green", bold=True),
+            colorize(config.layer_archive, "green"),
         )
         with TarFile.open(config.layer_archive, "w") as tar:
             for file in pack_root.rglob("*"):

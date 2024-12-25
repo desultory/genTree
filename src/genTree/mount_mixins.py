@@ -1,4 +1,7 @@
+from pathlib import Path
 from subprocess import run
+
+
 
 from zenlib.util import colorize
 
@@ -41,8 +44,9 @@ class MountMixins:
             check=True,
         )
 
-    def bind_mount(self, source, dest, recursive=False, readonly=True):
+    def bind_mount(self, source: Path, dest: Path, recursive=False, readonly=True, file=False):
         """Bind mounts a source directory over a destination directory"""
+        source, dest = Path(source), Path(dest)
         mount_type = "--rbind" if recursive else "--bind"
         if dest.is_mount():
             self.logger.info(
@@ -50,8 +54,21 @@ class MountMixins:
             )
             run(["umount", dest], check=True)
 
+        if not source.exists():
+            if file:
+                self.logger.debug("Creating mount source file: %s", source)
+                source.touch()
+            else:
+                self.logger.debug("Creating mount source directory: %s", source)
+                source.mkdir(parents=True)
+
         if not dest.exists():
-            dest.mkdir(parents=True)
+            if file:
+                self.logger.debug("Creating mount destination file: %s", dest)
+                dest.touch()
+            else:
+                self.logger.debug("Creating mount destination directory: %s", dest)
+                dest.mkdir(parents=True)
 
         args = ["mount", mount_type, source, dest]
         if readonly:

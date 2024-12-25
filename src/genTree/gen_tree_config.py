@@ -22,7 +22,7 @@ DEFAULT_FEATURES = [
 
 ENV_VAR_INHERITED = ["features"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
-PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg"]
+PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg", "verbose"]
 PORTAGE_STRS = ["jobs"]
 
 INHERITED_CONFIG = [
@@ -31,7 +31,16 @@ INHERITED_CONFIG = [
     "clean_build",
     "rebuild",
     "config_overlay",
+    "profile",
+    "profile_repo",
 ]
+
+CHILD_RESTRICTED = [
+        "seed",
+        "seed_dir",
+        "build_dir",
+        "pkgdir"
+    ]
 
 
 def find_config(config_file):
@@ -57,10 +66,12 @@ class GenTreeConfig:
     clean_build: bool = True  # Cleans the layer build dir before copying base layers
     rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent
-    seed_dir: Path = "~/.local/share/genTree/seeds"
-    build_dir: Path = "~/.local/share/genTree/builds"
-    pkgdir: Path = "~/.local/share/genTree/pkgdir"
+    # The following directories can only be set in the top level config
+    seed_dir: Path = "~/.local/share/genTree/seeds"  # Directory where seeds are read from and used
+    build_dir: Path = "~/.local/share/genTree/builds"  # Directory where builds are performed and stored
+    pkgdir: Path = "~/.local/share/genTree/pkgdir"  # Directory where packages are stored
     config_overlay: Path = None  # Path to the dir to mount over /etc/portage on the sysroot
+    # Profiles can be set in any config and are applied before the emerge
     profile: str = "default/linux/amd64/23.0"
     profile_repo: str = "gentoo"
     archive_extension: str = ".tar"
@@ -70,7 +81,7 @@ class GenTreeConfig:
     features: PortageFlags = None
     binpkg_format: str = "gpkg"
     # portage args
-    jobs: int = 4
+    jobs: int = 1
     with_bdeps: FlagBool = False
     usepkg: FlagBool = True
     verbose: bool = True
@@ -189,8 +200,9 @@ class GenTreeConfig:
         self.logger.debug(f"[{config_file}] Loaded config: {self.config}")
 
         if getattr(self, "parent"):
-            if "seed" in self.config:
-                raise ValueError("Seed cannot be set in a child config")
+            for restricted in CHILD_RESTRICTED:
+                if restricted in self.config:
+                    raise ValueError(f"Cannot set {restricted} in a child config")
             self.inherit_parent()
         elif "seed" not in self.config:
             raise ValueError("Seed must be set in the top level config")

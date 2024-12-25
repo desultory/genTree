@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from os import getuid
 from pathlib import Path
 from shutil import copytree
 from tarfile import TarFile
@@ -50,18 +51,21 @@ def import_seed():
     seed = Path(kwargs.pop("seed"))
     name = kwargs.pop("name", seed.stem.split(".")[0])
 
-    seed_dir = Path("~/.local/share/genTree/seeds").expanduser() / name
+    if getuid() != 0:
+        seeds_dir = Path("~/.local/share/genTree/seeds").expanduser().resolve()
+    else:
+        seeds_dir = Path("/var/lib/genTree/seeds")
+
+    seed_dir = seeds_dir / name
+
     if seed_dir.exists():
         raise FileExistsError(f"Seed already exists: {seed_dir}")
-
-    nsexec(install_seed, seed, seed_dir, logger)
-
-def install_seed(seed, seed_dir, logger):
-    """ Installs a seed archive to a directory. """
-    logger.info(f"Installing seed to {seed_dir}")
 
     if seed.is_dir() and seed.exists():
         copytree(seed, seed_dir)
     else:
         with TarFile.open(seed) as tar:
             tar.extractall(seed_dir, filter=GenTreeTarFilter(logger=logger, filter_dev=True))
+
+    logger.info(f"Seed imported: {seed_dir}")
+

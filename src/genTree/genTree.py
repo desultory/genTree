@@ -38,7 +38,6 @@ def preserve_world(func):
     return wrapper
 
 
-
 @loggify
 class GenTree(MountMixins, OCIMixins):
     def __init__(self, config_file="config.toml", *args, **kwargs):
@@ -103,7 +102,7 @@ class GenTree(MountMixins, OCIMixins):
         self.apply_whiteouts(dest, config.whiteouts)
 
     def activate_seed(self, config):
-        """ Mounts an overlayfs in a user namespace for the seed """
+        """Mounts an overlayfs in a user namespace for the seed"""
         config.logger.info(
             "[%s] Activating seed: %s",
             colorize(config.name, "blue"),
@@ -129,7 +128,7 @@ class GenTree(MountMixins, OCIMixins):
 
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
-        self.logger.info("Running emerge with args: " + " ".join(args))
+        self.logger.info("Running emerge with args: " + " ".join(map(str, args)))
         ret = run(["emerge", *args], capture_output=True)
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
@@ -220,9 +219,13 @@ class GenTree(MountMixins, OCIMixins):
         self.mount_seed_overlay()
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
-        self.bind_mount(self.config.pkgdir.expanduser().resolve(), self.config.sysroot / "var/cache/binpkgs", readonly=False)
-        self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf")
-        self.bind_mount(self.config.build_dir.expanduser().resolve(), self.config.build_mount, recursive=True, readonly=False)
+        self.bind_mount(
+            self.config.pkgdir.expanduser().resolve(), self.config.sysroot / "var/cache/binpkgs", readonly=False
+        )
+        self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
+        self.bind_mount(
+            self.config.build_dir.expanduser().resolve(), self.config.build_mount, recursive=True, readonly=False
+        )
         self.logger.info("Chrooting into: %s", colorize(self.config.sysroot, "red"))
         chroot(self.config.sysroot)
 

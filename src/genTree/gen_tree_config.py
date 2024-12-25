@@ -20,13 +20,12 @@ DEFAULT_FEATURES = [
     "-merge-sync",
 ]
 
-ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
-ENV_VAR_INHERITED = [*ENV_VAR_DIRS, "features"]
+ENV_VAR_INHERITED = ["features"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
 PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg"]
-PORTAGE_STRS = ["jobs", "config_root"]
+PORTAGE_STRS = ["jobs"]
 
-INHERITED_CONFIG = [*ENV_VAR_INHERITED, "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_root"]
+INHERITED_CONFIG = [*ENV_VAR_INHERITED, "seed", "clean_build", "rebuild", "layer_dir", "base_build_dir", "config_overlay"]
 
 
 def find_config(config_file):
@@ -40,11 +39,12 @@ def find_config(config_file):
 
 @validatedDataclass
 class GenTreeConfig:
-    required_config = ["name", *ENV_VAR_DIRS]
+    required_config = ["name", "seed"]
     name: str = None  # The name of the config layer
     config_file: Path = None  # Path to the config file
     parent: Optional["GenTreeConfig"] = None
     bases: list = None  # List of base layer configs
+    seed: str = None  # Seed name
     depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
     config: dict = None  # The config dictionary
     packages: list = None  # List of packages to install on the layer
@@ -52,21 +52,18 @@ class GenTreeConfig:
     clean_build: bool = True  # Cleans the layer build dir before copying base layers
     rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent
-    layer_dir: Path = "/var/lib/genTree/layers"
+    layer_dir: Path = "~/.local/share/genTree/layers"
+    seed_dir: Path = "~/.local/share/genTree/seeds"
+    config_overlay: Path = None  # Path to the dir to mount over /etc/portage on the sysroot
+    profile: str = "default/linux/amd64/23.0"
     archive_extension: str = ".tar"
     output_file: Path = None  # Override the output file
-    base_build_dir: Path = "/var/lib/genTree/builds"
-    # Environment variable directories
-    emerge_log_dir: Path = "/var/lib/genTree/emerge_logs"
-    portage_logdir: Path = "/var/lib/genTree/portage_logs"
-    pkgdir: Path = "/var/lib/genTree/pkgdir"
-    portage_tmpdir: Path = "/var/lib/genTree/portage_tmpdir"
+    base_build_dir: Path = "~/.local/share/genTree/builds"
     # Other environment variables
     use: PortageFlags = None
     features: PortageFlags = None
     binpkg_format: str = "gpkg"
     # portage args
-    config_root: Path = "/var/lib/genTree/config_roots/default"
     jobs: int = 4
     with_bdeps: FlagBool = False
     usepkg: FlagBool = True
@@ -95,30 +92,48 @@ class GenTreeConfig:
 
     @property
     def root(self):
-        return self.base_build_dir.resolve() / self.name
+        return self.base_build_dir.expanduser().resolve() / self.name
 
     @property
     def lower_root(self):
-        return self.base_build_dir.resolve() / f"{self.name}_lower"
+        return self.base_build_dir.expanduser().resolve() / f"{self.name}_lower"
 
     @property
     def work_root(self):
-        return self.base_build_dir.resolve() / f"{self.name}_work"
+        return self.base_build_dir.expanduser().resolve() / f"{self.name}_work"
 
     @property
     def upper_root(self):
-        return self.base_build_dir.resolve() / f"{self.name}_upper"
+        return self.base_build_dir.expanduser().resolve() / f"{self.name}_upper"
+
+    @property
+    def sysroot(self):
+        return self.seed_dir.expanduser().resolve() / f"{self.seed}_sysroot"
+
+    @property
+    def upper_seed_root(self):
+        return self.seed_dir.expanduser().resolve() / f"{self.seed}_upper"
+
+    @property
+    def seed_root(self):
+        return self.seed_dir.expanduser().resolve() / self.seed
+
+    @property
+    def work_seed_root(self):
+        return self.seed_dir.expanduser().resolve() / f"{self.seed}_work"
 
     @property
     def layer_archive(self):
-        return self.output_file or (self.layer_dir.resolve() / self.name).with_suffix(self.archive_extension)
+        return self.output_file or (self.layer_dir.expanduser().resolve() / self.name).with_suffix(
+            self.archive_extension
+        )
 
     @property
     def tar_filter(self):
         filter_args = {}
         for f_name in [a.replace("tar_filter_", "") for a in self.__dataclass_fields__ if a.startswith("tar_filter_")]:
             filter_args[f"filter_{f_name}"] = getattr(self, f"tar_filter_{f_name}")
-        return GenTreeTarFilter(owner=self, logger=self.logger, **filter_args)
+        return GenTreeTarFilter(logger=self.logger, **filter_args)
 
     @property
     def whiteout_filter(self):
@@ -216,6 +231,7 @@ class GenTreeConfig:
     def get_emerge_args(self):
         """Gets emerge args for the current config"""
         args = ["--root", str(self.root)]
+        args.extend(["--sysroot", str(self.sysroot)])
         for str_arg in PORTAGE_STRS:
             if getattr(self, str_arg):
                 args.extend([f"--{str_arg.replace('_', '-')}", str(getattr(self, str_arg))])
@@ -229,14 +245,8 @@ class GenTreeConfig:
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
-        for env_dir in ENV_VAR_DIRS:
-            self.check_dir(env_dir)
-
         for env in ENV_VARS:
-            if env in ENV_VAR_DIRS:
-                env_value = getattr(self, env).resolve()
-            else:
-                env_value = getattr(self, env)
+            env_value = getattr(self, env)
             env = env.upper()
             if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
                 self.logger.debug("Skipping unset environment variable: %s", env)
@@ -247,6 +257,7 @@ class GenTreeConfig:
         if use_flags := self.use:
             self.logger.info("Setting USE flags: %s", use_flags)
             environ["USE"] = str(use_flags)
+
 
     def __str__(self):
         out_dict = {attr: getattr(self, attr) for attr in self.__dataclass_fields__}

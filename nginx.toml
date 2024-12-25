@@ -1,6 +1,7 @@
 name = "nginx"
 output_file = "nginx.tar"
 
+seed = "stage3-openrc"
 bases = ["tini"]
 
 use = "nginx"

@@ -1,3 +1,4 @@
+from pathlib import Path
 from shutil import rmtree
 from subprocess import run
 from tarfile import ReadError, TarFile
@@ -6,8 +7,8 @@ from zenlib.logging import loggify
 from zenlib.util import colorize
 
 from .gen_tree_config import GenTreeConfig
-from .genTreeTarFilter import WhiteoutError
-from .mount_mixins import MountMixins, bind_mount_repos
+from .gen_tree_tar_filter import WhiteoutError
+from .mount_mixins import MountMixins
 from .oci_mixins import OCIMixins
 
 
@@ -74,10 +75,25 @@ class GenTree(MountMixins, OCIMixins):
                 config.logger.warning(
                     "[%s] Cleaning root: %s", colorize(config.name, "blue"), colorize(root_dir, "red")
                 )
-                rmtree(root_dir, ignore_errors=True)
+                rmtree(root_dir)
 
-        config.check_dir("root")
-        config.check_dir("config_root", create=False)
+        config.check_dir(["root", "lower_root", "work_root", "upper_root"])
+
+    def set_portage_profile(self, config):
+        """Sets the portage profile for the current config"""
+        config.logger.info(
+            "[%s] Setting portage profile: %s",
+            colorize(config.name, "blue"),
+            colorize(config.profile, "green"),
+        )
+        if str(config.upper_seed_root) == "/":
+            raise RuntimeError("Cannot set profile for root directory.")
+        from os import environ
+        environ["ROOT"] = str(config.sysroot)
+        profile_path = Path(config.sysroot / "etc/portage/make.profile")
+        profile_path.unlink(missing_ok=True)
+        run(["eselect", "profile", "set", config.profile], check=True)
+
 
     @preserve_world
     def deploy_base(self, config, base, dest=None, deployed_bases=None):
@@ -105,6 +121,15 @@ class GenTree(MountMixins, OCIMixins):
         self.apply_opaques(dest, config.opaques)
         self.apply_whiteouts(dest, config.whiteouts)
 
+    def activate_seed(self, config):
+        """ Mounts an overlayfs in a user namespace for the seed """
+        config.logger.info(
+            "[%s] Activating seed: %s",
+            colorize(config.name, "blue"),
+            colorize(config.seed, "cyan"),
+        )
+        self.mount_seed(config)
+
     def deploy_bases(self, config, deployed_bases=None):
         """Deploys the bases to the lower dir for the current config.
         Mounts an overlayfs on the build root."""
@@ -114,16 +139,13 @@ class GenTree(MountMixins, OCIMixins):
         # Add something so subsequent deploys don't init a new list
         deployed_bases = deployed_bases or [config.name]
 
-        config.check_dir("lower_root")
         for base in bases:
             if base.name in deployed_bases:
                 config.logger.debug("Skipping base as it has already been deployed: %s", base.name)
                 continue
             self.deploy_base(config=config, base=base, deployed_bases=deployed_bases)
             deployed_bases.append(base.name)
-        self.mount_root_overlay(config)
 
-    @bind_mount_repos
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
         self.logger.info("Running emerge with args: " + " ".join(args))
@@ -140,9 +162,7 @@ class GenTree(MountMixins, OCIMixins):
             config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
             return
 
-        emerge_args = config.get_emerge_args()
-        config.set_portage_env()
-        self.run_emerge(emerge_args, config=config)
+        self.run_emerge(config.get_emerge_args(), config=config)
 
         if config.depclean:
             self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"], config=config)
@@ -173,6 +193,10 @@ class GenTree(MountMixins, OCIMixins):
 
         self.prepare_build(config=config)
         self.deploy_bases(config=config)
+        self.bind_mount_repos(config)
+        self.set_portage_profile(config)
+        self.mount_root_overlay(config)
+        config.set_portage_env()
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
         if not no_pack:
@@ -219,6 +243,7 @@ class GenTree(MountMixins, OCIMixins):
     def build_tree(self):
         """Builds the tree.
         Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
+        self.mount_seed_overlay()
         self.logger.info(
             "[%s] Building tree at: %s",
             colorize(self.config.name, "blue", bold=True, bright=True),

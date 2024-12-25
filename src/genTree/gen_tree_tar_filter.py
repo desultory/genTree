@@ -43,8 +43,7 @@ class GenTreeTarFilter:
     DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc"]
     FILTERS = ["whiteout", "dev", "man", "docs", "include", "charmaps", "completions", "vardbpkg"]
 
-    def __init__(self, owner, *args, **kwargs):
-        self.owner = owner
+    def __init__(self, *args, **kwargs):
         for name in kwargs.copy():
             if name.startswith("filter_"):
                 setattr(self, name, kwargs.pop(name))
@@ -53,7 +52,7 @@ class GenTreeTarFilter:
     @property
     def filters(self):
         for f in self.FILTERS:
-            if getattr(self, f"filter_{f}"):
+            if getattr(self, f"filter_{f}", None):
                 yield getattr(self, f"f_{f}")
 
     def __call__(self, member, *args, **kwargs):

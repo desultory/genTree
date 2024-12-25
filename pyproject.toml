@@ -24,6 +24,7 @@ dependencies = [
 
 [project.scripts]
 genTree = "genTree.main:main"
+genTree-import-seed = "genTree.main:import_seed"
 
 [project.urls]
 Homepage = "https://github.com/desultory/genTree"

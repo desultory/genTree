@@ -20,7 +20,8 @@ DEFAULT_FEATURES = [
     "-merge-sync",
 ]
 
-ENV_VAR_INHERITED = ["features"]
+ENV_VAR_DIRS = ["emerge_log_dir", "portage_logdir", "pkgdir", "portage_tmpdir"]
+ENV_VAR_INHERITED = [*ENV_VAR_DIRS, "features"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
 PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg"]
 PORTAGE_STRS = ["jobs"]
@@ -39,7 +40,7 @@ def find_config(config_file):
 
 @validatedDataclass
 class GenTreeConfig:
-    required_config = ["name", "seed"]
+    required_config = ["name", "seed", *ENV_VAR_DIRS]
     name: str = None  # The name of the config layer
     config_file: Path = None  # Path to the config file
     parent: Optional["GenTreeConfig"] = None
@@ -59,6 +60,11 @@ class GenTreeConfig:
     archive_extension: str = ".tar"
     output_file: Path = None  # Override the output file
     base_build_dir: Path = "~/.local/share/genTree/builds"
+    # Environment variable directories
+    emerge_log_dir: Path = "~/.local/share/genTree/emerge_logs"
+    portage_logdir: Path = "~/.local/share/genTree/portage_logs"
+    pkgdir: Path = "~/.local/share/genTree/pkgdir"
+    portage_tmpdir: Path = "~/.local/share/genTree/portage_tmpdir"
     # Other environment variables
     use: PortageFlags = None
     features: PortageFlags = None
@@ -220,7 +226,7 @@ class GenTreeConfig:
         if create is True, creates it if it doesn't exist
         otherwise raises FileNotFoundError"""
         if dirname := getattr(self, dirname):
-            path = Path(dirname)
+            path = Path(dirname).expanduser().resolve()
             if not path.exists():
                 if create:
                     self.logger.debug("Creating directory: %s", path)
@@ -245,8 +251,14 @@ class GenTreeConfig:
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
+        for env_dir in ENV_VAR_DIRS:
+            self.check_dir(env_dir)
+
         for env in ENV_VARS:
-            env_value = getattr(self, env)
+            if env in ENV_VAR_DIRS:
+                env_value = getattr(self, env).expanduser().resolve()
+            else:
+                env_value = getattr(self, env)
             env = env.upper()
             if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
                 self.logger.debug("Skipping unset environment variable: %s", env)

@@ -1,4 +1,4 @@
-from pathlib import Path
+from os import chroot
 from shutil import rmtree
 from subprocess import run
 from tarfile import ReadError, TarFile
@@ -13,9 +13,9 @@ from .oci_mixins import OCIMixins
 
 
 def get_world_set(config):
-    """returns a set containing world entries under the root of the supplied config"""
+    """returns a set containing world entries under the build root of the supplied config"""
     try:
-        with open(config.root / "var/lib/portage/world") as world:
+        with open(config.overlay_root / "var/lib/portage/world") as world:
             return set(world.read().splitlines())
     except FileNotFoundError:
         return set()
@@ -31,7 +31,7 @@ def preserve_world(func):
         for entry in world:
             if entry not in new_world:
                 config.logger.info(f"[{colorize(config.name, "blue")}] Adding {colorize(entry, "green")} to world file")
-                with open(config.root / "var/lib/portage/world", "a") as world:
+                with open(config.overlay_root / "var/lib/portage/world", "a") as world:
                     world.write(entry + "\n")
         return ret
 
@@ -57,11 +57,8 @@ class GenTree(MountMixins, OCIMixins):
 
     def prepare_build(self, config):
         """Prepares the build environment for the passed config"""
-        if str(config.root) == "/":
-            raise RuntimeError("Cannot build in root directory.")
-
         if config.clean_build:
-            for root in ["root", "lower_root", "work_root", "upper_root"]:
+            for root in ["overlay_root", "lower_root", "work_root", "upper_root"]:
                 root_dir = getattr(config, root)
                 if not root_dir.exists():
                     continue
@@ -77,27 +74,11 @@ class GenTree(MountMixins, OCIMixins):
                 )
                 rmtree(root_dir)
 
-        config.check_dir(["root", "lower_root", "work_root", "upper_root"])
-
-    def set_portage_profile(self, config):
-        """Sets the portage profile for the current config"""
-        config.logger.info(
-            "[%s] Setting portage profile: %s",
-            colorize(config.name, "blue"),
-            colorize(config.profile, "green"),
-        )
-        if str(config.upper_seed_root) == "/":
-            raise RuntimeError("Cannot set profile for root directory.")
-        from os import environ
-        environ["ROOT"] = str(config.sysroot)
-        profile_path = Path(config.sysroot / "etc/portage/make.profile")
-        profile_path.unlink(missing_ok=True)
-        run(["eselect", "profile", "set", config.profile], check=True)
-
+        config.check_dir(["overlay_root", "lower_root", "work_root", "upper_root"])
 
     @preserve_world
     def deploy_base(self, config, base, dest=None, deployed_bases=None):
-        """Deploys bases over the config root. Recursively deploys bases of the base."""
+        """Deploys bases over the config lower root. Recursively deploys bases of the base."""
         dest = dest or config.lower_root
         deployed_bases = deployed_bases or []
         for sub_base in base.bases:
@@ -165,7 +146,7 @@ class GenTree(MountMixins, OCIMixins):
         self.run_emerge(config.get_emerge_args(), config=config)
 
         if config.depclean:
-            self.run_emerge(["--root", str(config.root), "--depclean", "--with-bdeps=n"], config=config)
+            self.run_emerge(["--root", config.overlay_root, "--depclean", "--with-bdeps=n"], config=config)
 
     def perform_unmerge(self, config):
         """unmerges the packages in the unmerge list"""
@@ -176,7 +157,7 @@ class GenTree(MountMixins, OCIMixins):
         config.logger.info(
             "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
         )
-        self.run_emerge(["--root", str(config.root), "--unmerge", *packages], config=config)
+        self.run_emerge(["--root", config.overlay_root, "--unmerge", *packages], config=config)
 
     def build(self, config, no_pack=False):
         """Builds all bases and branches under the current config
@@ -193,9 +174,8 @@ class GenTree(MountMixins, OCIMixins):
 
         self.prepare_build(config=config)
         self.deploy_bases(config=config)
-        self.bind_mount_repos(config)
-        self.set_portage_profile(config)
-        self.mount_root_overlay(config)
+        self.mount_root_overlay(config=config)
+        config.set_portage_profile()
         config.set_portage_env()
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
@@ -207,7 +187,7 @@ class GenTree(MountMixins, OCIMixins):
     def pack(self, config, pack_all=False):
         """Packs the built tree into {config.layer_archive}.
         Unmounts the build root if it is a mount."""
-        pack_root = config.root if not config.bases or pack_all else config.upper_root
+        pack_root = config.overlay_root if not config.bases or pack_all else config.upper_root
         config.logger.info(
             "[%s] Packing tree to: %s",
             colorize(config.name, "blue", bold=True),
@@ -234,20 +214,22 @@ class GenTree(MountMixins, OCIMixins):
             colorize(config.layer_archive, "green", bold=True),
         )
 
-        if config.root.is_mount():
-            config.logger.info(
-                "[%s] Unmounting build root: %s", colorize(config.name, "blue"), colorize(config.root, "magenta")
-            )
-            run(["umount", config.root], check=True)
+    def init_namespace(self):
+        """Initializes the namespace for the current config"""
+        self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
+        self.mount_seed_overlay()
+        self.mount_system_dirs()
+        self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
+        self.bind_mount(self.config.pkgdir.expanduser().resolve(), self.config.sysroot / "var/cache/binpkgs", readonly=False)
+        self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf")
+        self.bind_mount(self.config.build_dir.expanduser().resolve(), self.config.build_mount, recursive=True, readonly=False)
+        self.logger.info("Chrooting into: %s", colorize(self.config.sysroot, "red"))
+        chroot(self.config.sysroot)
 
     def build_tree(self):
         """Builds the tree.
         Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
-        self.mount_seed_overlay()
-        self.logger.info(
-            "[%s] Building tree at: %s",
-            colorize(self.config.name, "blue", bold=True, bright=True),
-            colorize(self.config.root, "magenta", bold=True, bright=True),
-        )
+        self.init_namespace()
+        self.logger.info("Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
         if self.build(config=self.config, no_pack=True):  # If there is nothing to build, don't pack
             self.pack(config=self.config, pack_all=True)

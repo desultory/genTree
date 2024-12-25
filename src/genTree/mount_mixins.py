@@ -5,11 +5,11 @@ from zenlib.util import colorize
 
 class MountMixins:
     def mount_root_overlay(self, config):
-        """Mounts an overlayfs on the build root"""
+        """Mounts an overlayfs for the build root"""
         self.logger.info(
             "[%s] Mounting overlayfs on: %s",
             colorize(config.name, "blue"),
-            colorize(config.root, "magenta", bold=True),
+            colorize(config.overlay_root, "cyan"),
         )
         run(
             [
@@ -19,7 +19,7 @@ class MountMixins:
                 "overlay",
                 "-o",
                 f"userxattr,lowerdir={config.lower_root},upperdir={config.upper_root},workdir={config.work_root}",
-                config.root,
+                config.overlay_root,
             ],
             check=True,
         )
@@ -41,22 +41,38 @@ class MountMixins:
             check=True,
         )
 
-    def bind_mount_repos(self, config):
-        """Bind mounts the configured repo dir over the upper seed root"""
-        repo_dest = self.config.sysroot / "var/db/repos"
-        if not repo_dest.exists():
-            repo_dest.mkdir(parents=True)
-        self.unmount_bind_repos(config)
-        self.logger.info(
-            "Mounting %s over: %s", colorize(config.system_repos, "green"), colorize(repo_dest, "magenta")
-        )
-        run(["mount", "--bind", config.system_repos, repo_dest, "-o", "ro"], check=True)
-
-    def unmount_bind_repos(self, config):
-        """Unmounts the repor dir bind mount over the upper seed root if it exists"""
-        repo_dest = self.config.sysroot / "var/db/repos"
-        if repo_dest.is_mount():
+    def bind_mount(self, source, dest, recursive=False, readonly=True):
+        """Bind mounts a source directory over a destination directory"""
+        mount_type = "--rbind" if recursive else "--bind"
+        if dest.is_mount():
             self.logger.info(
-                "Unmounting %s: %s", colorize(config.system_repos, "red"), colorize(repo_dest, "magenta")
+                "Unmounting %s: %s", colorize(source, "red"), colorize(dest, "magenta")
             )
-            run(["umount", repo_dest], check=True)
+            run(["umount", dest], check=True)
+
+        if not dest.exists():
+            dest.mkdir(parents=True)
+
+        args = ["mount", mount_type, source, dest]
+        if readonly:
+            args.extend(["-o", "ro"])
+
+
+        self.logger.info(
+            "Mounting %s over: %s", colorize(source, "green"), colorize(dest, "magenta", bold=True)
+        )
+        run(args, check=True)
+
+    def mount_system_dirs(self):
+        """Mounts /proc, /sys, and /dev in the build root"""
+        config = self.config
+        self.logger.info(
+            "[%s] Mounting system directories in: %s",
+            colorize(config.name, "blue"),
+            colorize(config.sysroot, "cyan", bold=True),
+        )
+        self.bind_mount("/proc", config.sysroot / "proc", recursive=True)
+        self.bind_mount("/sys", config.sysroot / "sys", recursive=True)
+        self.bind_mount("/dev", config.sysroot / "dev", recursive=True)
+        self.bind_mount("/run", config.sysroot / "run", recursive=True)
+        run(["mount", "--types", "devpts", "devpts", config.sysroot / "dev/pts"], check=True)

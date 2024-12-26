@@ -309,6 +309,7 @@ class GenTreeConfig:
         profile_sym.symlink_to(
             Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}"), target_is_directory=True
         )
+        self.logger.debug("Set portage profile symlink: %s -> %s", profile_sym, profile_sym.resolve())
 
     def get_emerge_args(self):
         """Gets emerge args for the current config"""

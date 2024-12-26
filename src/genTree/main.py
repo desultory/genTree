@@ -46,6 +46,7 @@ def import_seed():
             "help": "Root directory of the configuration.",
             "action": "store",
             "default": "~/.local/share/genTree",
+            "nargs": "?",
         },
     ]
 

@@ -90,6 +90,7 @@ class GenTreeConfig:
     tar_filter_docs: bool = True  # Filters documentation
     tar_filter_include: bool = True  # Filters included headers
     tar_filter_charmaps: bool = True  # Filters charmaps
+    tar_filter_locales: bool = False  # Filters locales
     tar_filter_completions: bool = True  # Filters shell completions
     tar_filter_vardbpkg: bool = False  # Filters /var/db/pkg
     # whiteout

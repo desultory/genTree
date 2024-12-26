@@ -40,8 +40,9 @@ class OpaqueWhiteoutError(Exception):
 
 @loggify
 class GenTreeTarFilter:
-    DOC_DIRS = ["usr/share/doc", "usr/share/gtk-doc"]
-    FILTERS = ["whiteout", "dev", "man", "docs", "include", "charmaps", "completions", "vardbpkg"]
+    DOC_DIRS = ["usr/share/doc/", "usr/share/gtk-doc/"]
+    LOCALE_DIRS = ["usr/share/locale/", "usr/share/i18n/locales/", "usr/lib/gconv/", "usr/lib64/gconv/"]
+    FILTERS = ["whiteout", "dev", "man", "docs", "include", "locales", "charmaps", "completions", "vardbpkg"]
 
     def __init__(self, *args, **kwargs):
         for name in kwargs.copy():
@@ -111,6 +112,12 @@ class GenTreeTarFilter:
         """Filters include files"""
         if member.name.startswith("usr/include/"):
             return self.logger.debug("Filtering include file: %s", member.name)
+        return member
+
+    def f_locales(self, member):
+        """Filters locales"""
+        if any(member.name.startswith(d) for d in self.LOCALE_DIRS):
+            return self.logger.debug("Filtering locale: %s", member.name)
         return member
 
     def f_completions(self, member):

@@ -17,7 +17,7 @@ class FlagBool:
         return "y" if self else "n"
 
 
-class PortageBools(UserDict):
+class EmergeBools(UserDict):
     """Dict of FlagBool objects"""
 
     def __init__(self, flags):

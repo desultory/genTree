@@ -7,7 +7,7 @@ from zenlib.types import validatedDataclass
 from zenlib.util import colorize, handle_plural, pretty_print
 
 from .gen_tree_tar_filter import GenTreeTarFilter
-from .portage_types import PortageBools, PortageFlags
+from .portage_types import EmergeBools, PortageFlags
 from .whiteout_filter import WhiteoutFilter
 
 ENV_VAR_INHERITED = ["features", "binpkg_format"]
@@ -19,7 +19,6 @@ INHERITED_CONFIG = [
     "seed",
     "clean_build",
     "rebuild",
-    "config_overlay",
     "profile",
     "profile_repo",
 ]
@@ -61,6 +60,7 @@ class GenTreeConfig:
     clean_build: bool = True  # Cleans the layer build dir before copying base layers
     rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent
+    inherit_config: bool = False  # Inherit the config overlay from the parent
     # The following directories can only be set in the top level config
     conf_root: Path = "~/.local/share/genTree"  # The root of the genTree config
     _seed_dir: Path = None  # Directory where seeds are read from and used
@@ -79,7 +79,7 @@ class GenTreeConfig:
     binpkg_format: str = "gpkg"
     # portage args
     jobs: int = 8
-    portage_bools: PortageBools = None
+    emerge_bools: EmergeBools = None
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -208,6 +208,12 @@ class GenTreeConfig:
             parent_val = getattr(self.parent, attr)
             self.logger.debug("Inheriting attribute: %s=%s", attr, parent_val)
             setattr(self, attr, parent_val)
+        if self.inherit_config:
+            if "config_overlay" in self.config:
+                raise ValueError(
+                    "Config inheritance is set but config_overlay is already defined: %s", self.config["config_overlay"]
+                )
+            self.config_overlay = self.parent.config_overlay
 
     def process_kwargs(self, kwargs):
         """Process kwargs to set config values"""
@@ -239,13 +245,13 @@ class GenTreeConfig:
             raise ValueError("Seed must be set in the top level config")
 
         for key, value in self.config.items():
-            if key in ["name", "portage_bools", "logger", "use", "features", "bases", "whiteouts"]:
+            if key in ["name", "emerge_bools", "logger", "use", "features", "bases", "whiteouts"]:
                 continue
             setattr(self, key, value)
 
         self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
         self.load_use()
-        self.load_portage_bools()
+        self.load_emerge_bools()
 
         self.bases = []
         for base in self.config.get("bases", []):
@@ -254,15 +260,16 @@ class GenTreeConfig:
         self.whiteouts = self.config.get("whiteouts", [])
         self.opaques = self.config.get("opaques", [])
 
-    def load_portage_bools(self):
-        """Loads portage boolean flags from the config"""
-        from . import DEFAULT_PORTAGE_BOOLS
+    def load_emerge_bools(self):
+        """Loads emerge boolean flags from the config"""
         from copy import deepcopy
 
-        self.portage_bools = deepcopy(DEFAULT_PORTAGE_BOOLS)
-        if portage_bools := self.config.get("portage_bools"):
-            self.portage_bools.update(portage_bools)
-            self.logger.debug("Loaded portage boolean flags: %s", self.portage_bools)
+        from . import DEFAULT_EMERGE_BOOLS
+
+        self.emerge_bools = deepcopy(DEFAULT_EMERGE_BOOLS)
+        if emerge_bools := self.config.get("emerge_bools"):
+            self.emerge_bools.update(emerge_bools)
+            self.logger.debug("Loaded emerge boolean flags: %s", self.emerge_bools)
 
     def load_use(self):
         """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""
@@ -309,7 +316,7 @@ class GenTreeConfig:
         for str_arg in PORTAGE_STRS:
             if getattr(self, str_arg):
                 args.extend([f"--{str_arg.replace('_', '-')}", str(getattr(self, str_arg))])
-        args += [*str(self.portage_bools).split(), *self.packages]
+        args += [*str(self.emerge_bools).split(), *self.packages]
         return args
 
     def set_portage_env(self):

@@ -54,6 +54,12 @@ Bases layer contents are extracted to the lower_dir of the build layer's overlay
 
 > Builtin bases such as `tini`, `glibc`, and `base` can be specified without a suffix to be used
 
+#### Inheritance
+
+USE flags will not be inherited from the parent unless `inherit_use` is set to true.
+
+FEATURES are inherited by default.
+
 ### Tar flters
 
 Several filters are available for use when packing layer tarballs:
@@ -73,6 +79,18 @@ The profile can be set using:
 
 * `profile` (default/linux/amd64/23.0) - The profile to use.
 * `profile_repos` (gentoo) - The repository source for the profile.
+
+### emerge bools
+
+boolean operators to the `emerge` commad can be set using:
+
+`
+[emerge_bools]
+verbose = true
+with_bdeps = false
+`
+
+> Operators which cannot be set =n should be defined in PORTAGE_PLAIN_BOOLS
 
 ### Portage Environment Variables
 
@@ -95,6 +113,7 @@ Several components are mounted into the build namespace as read-only bind mounts
 Configuration overrides to be mounted over `/etc/portage` can be specified using:
 
 * `config_overlay` (str) - The name of the configuration overlay to use (from `config_dir`).
+* `inherit_config` (false) - Inherit a config root from the seed.
 
 ### Build overlay
 

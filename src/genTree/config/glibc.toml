@@ -2,5 +2,5 @@ bases = ["base"]
 packages = ["sys-libs/glibc"]
 
 
-[portage_bools]
+[emerge_bools]
 nodeps = true

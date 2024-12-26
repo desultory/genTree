@@ -1,13 +1,13 @@
-from .portage_types import PortageBools
+from .portage_types import EmergeBools
 from .genTree import GenTree
 
 
-__all__ = ["PortageBools", "GenTree"]
+__all__ = ["EmergeBools", "GenTree"]
 
 # Some bools don't support y/n, just --bool
 PORTAGE_PLAIN_BOOLS = ["nodeps"]
 
-DEFAULT_PORTAGE_BOOLS = PortageBools(
+DEFAULT_EMERGE_BOOLS = EmergeBools(
         {
             "verbose": True,  # Extra verbosity is nice
             "nodeps": False,  # Dependencies are typically needed

@@ -305,7 +305,6 @@ class GenTreeConfig:
 
     def get_emerge_args(self):
         """Gets emerge args for the current config"""
-        self.logger.warning(self.config)
         args = ["--root", str(self.overlay_root)]
         for str_arg in PORTAGE_STRS:
             if getattr(self, str_arg):

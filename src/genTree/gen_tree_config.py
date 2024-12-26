@@ -20,7 +20,7 @@ DEFAULT_FEATURES = [
     "-merge-sync",
 ]
 
-ENV_VAR_INHERITED = ["features"]
+ENV_VAR_INHERITED = ["features", "binpkg_format"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
 PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg", "verbose"]
 PORTAGE_STRS = ["jobs"]
@@ -43,6 +43,8 @@ CHILD_RESTRICTED = [
     "_build_dir",
     "pkgdir",
     "_pkgdir",
+    "config_dir",
+    "_config_dir",
     "confroot",
 ]
 
@@ -59,11 +61,11 @@ def find_config(config_file):
 @validatedDataclass
 class GenTreeConfig:
     name: str = None  # The name of the config layer
+    seed: str = None  # Seed name
     config_file: Path = None  # Path to the config file
     config: dict = None  # The config dictionary
     parent: Optional["GenTreeConfig"] = None
     bases: list = None  # List of base layer configs
-    seed: str = None  # Seed name
     depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
     packages: list = None  # List of packages to install on the layer
     unmerge: list = None  # List of packages to unmerge on the layer
@@ -74,8 +76,9 @@ class GenTreeConfig:
     conf_root: Path = "~/.local/share/genTree"  # The root of the genTree config
     _seed_dir: Path = None  # Directory where seeds are read from and used
     _build_dir: Path = None  # Directory where builds are performed and stored
+    _config_dir: Path = None  # Directory where config overlays are stored
     _pkgdir: Path = None  # Directory where packages are stored
-    config_overlay: Path = None  # Path to the dir to mount over /etc/portage on the sysroot
+    config_overlay: str = None  # The config overlay to use, a directory in the config dir
     # Profiles can be set in any config and are applied before the emerge
     profile: str = "default/linux/amd64/23.0"
     profile_repo: str = "gentoo"
@@ -86,7 +89,7 @@ class GenTreeConfig:
     features: PortageFlags = None
     binpkg_format: str = "gpkg"
     # portage args
-    jobs: int = 1
+    jobs: int = 8
     with_bdeps: FlagBool = False
     usepkg: FlagBool = True
     verbose: bool = True
@@ -116,15 +119,31 @@ class GenTreeConfig:
 
     @property
     def pkgdir(self):
-        return self._pkgdir or self.on_conf_root("pkgdir")
+        if self._pkgdir:
+            return self._pkgdir.expanduser().resolve()
+        else:
+            return self.on_conf_root("pkgdir")
 
     @property
     def build_dir(self):
-        return self._build_dir or self.on_conf_root("builds")
+        if self._build_dir:
+            return self._build_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("builds")
 
     @property
     def seed_dir(self):
-        return self._seed_dir or self.on_conf_root("seeds")
+        if self._seed_dir:
+            return self._seed_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("seeds")
+
+    @property
+    def config_dir(self):
+        if self._config_dir:
+            return self._config_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("config")
 
     @property
     def overlay_root(self):
@@ -141,6 +160,10 @@ class GenTreeConfig:
     @property
     def upper_root(self):
         return self.overlay_root.with_name(f"{self.name}_upper")
+
+    @property
+    def config_mount(self):
+        return self.sysroot / "config"
 
     @property
     def build_mount(self):

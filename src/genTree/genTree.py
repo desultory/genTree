@@ -174,6 +174,7 @@ class GenTree(MountMixins, OCIMixins):
         self.prepare_build(config=config)
         self.deploy_bases(config=config)
         self.mount_root_overlay(config=config)
+        self.mount_config_overlay(config=config)
         config.set_portage_profile()
         config.set_portage_env()
         self.perform_emerge(config=config)
@@ -219,18 +220,15 @@ class GenTree(MountMixins, OCIMixins):
         self.mount_seed_overlay()
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
-        self.bind_mount(
-            self.config.pkgdir.expanduser().resolve(), self.config.sysroot / "var/cache/binpkgs", readonly=False
-        )
+        self.bind_mount(self.config.pkgdir, self.config.sysroot / "var/cache/binpkgs", readonly=False)
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
-        self.bind_mount(
-            self.config.build_dir.expanduser().resolve(), self.config.build_mount, recursive=True, readonly=False
-        )
+        self.bind_mount(self.config.build_dir, self.config.build_mount, recursive=True, readonly=False)
+        self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)
         self.logger.info("Chrooting into: %s", colorize(self.config.sysroot, "red"))
         chroot(self.config.sysroot)
 
     def build_tree(self):
-        """Builds the tree.
+        """Builds the tree in a namespaced chroot environment.
         Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
         self.init_namespace()
         self.logger.info("Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))

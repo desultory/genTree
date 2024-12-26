@@ -1,15 +1,13 @@
 from pathlib import Path
 from subprocess import run
 
-
-
 from zenlib.util import colorize
 
 
 class MountMixins:
     def mount_root_overlay(self, config):
         """Mounts an overlayfs for the build root"""
-        self.logger.info(
+        config.logger.info(
             "[%s] Mounting overlayfs on: %s",
             colorize(config.name, "blue"),
             colorize(config.overlay_root, "cyan"),
@@ -23,6 +21,45 @@ class MountMixins:
                 "-o",
                 f"userxattr,lowerdir={config.lower_root},upperdir={config.upper_root},workdir={config.work_root}",
                 config.overlay_root,
+            ],
+            check=True,
+        )
+
+    def mount_config_overlay(self, config):
+        """ Mounts a config overlay over /etc/portage"""
+        config_dir = Path("/config") / config.config_overlay
+
+        if Path("/etc/portage").is_mount():
+            config.logger.info("Unmounting config overlay on /etc/portage")
+            run(["umount", "/etc/portage"], check=True)
+
+        if not config_dir.exists():
+            if config.config_overlay:
+                raise FileNotFoundError(f"Config overlay directory not found: {config_dir}")
+            return config.logger.debug("Config overlay directory not found: %s", config_dir)
+
+        upper_config = Path("/config") / "upper_config"
+        work_config = Path("/config") / "work_config"
+
+        for d in [upper_config, work_config]:
+            if not d.exists():
+                config.logger.debug("Creating directory: %s", d)
+                d.mkdir(parents=True)
+
+        config.logger.info(
+            "[%s] Mounting config overlay: %s",
+            colorize(config.name, "green"),
+            colorize(config_dir, "blue")
+        )
+        run(
+            [
+                "mount",
+                "-t",
+                "overlay",
+                "overlay",
+                "-o",
+                f"userxattr,lowerdir={config_dir},upperdir={upper_config},workdir={work_config}",
+                "/etc/portage",
             ],
             check=True,
         )
@@ -51,9 +88,7 @@ class MountMixins:
         source, dest = Path(source), Path(dest)
         mount_type = "--rbind" if recursive else "--bind"
         if dest.is_mount():
-            self.logger.info(
-                "Unmounting %s: %s", colorize(source, "red"), colorize(dest, "magenta")
-            )
+            self.logger.info("Unmounting %s: %s", colorize(source, "red"), colorize(dest, "magenta"))
             run(["umount", dest], check=True)
 
         if not source.exists():
@@ -76,10 +111,7 @@ class MountMixins:
         if readonly:
             args.extend(["-o", "ro"])
 
-
-        self.logger.info(
-            "Mounting %s over: %s", colorize(source, "green"), colorize(dest, "magenta", bold=True)
-        )
+        self.logger.info("Mounting %s over: %s", colorize(source, "green"), colorize(dest, "magenta", bold=True))
         run(args, check=True)
 
     def mount_system_dirs(self):

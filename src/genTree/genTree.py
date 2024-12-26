@@ -128,7 +128,9 @@ class GenTree(MountMixins, OCIMixins):
 
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
-        self.logger.info("Running emerge with args: " + " ".join(map(str, args)))
+        self.logger.info(
+            "[%s] emerge %s", colorize(config.name, "green", bright=True, bold=True), " ".join(map(str, args))
+        )
         ret = run(["emerge", *args], capture_output=True)
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())

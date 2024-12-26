@@ -14,9 +14,9 @@ genTree generates a filesystem tree in a namespace using portage.
 
 ex. `genTree-import-seed stage3.tar.xz stage3-openrc .`
 
-> The first argument is the SYROOT target
+`genTree <config file> [--debug, -d]`
 
-`genTree config.toml`
+ex. `genTree nginx.toml`
 
 ## Configuration
 

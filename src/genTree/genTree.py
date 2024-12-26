@@ -43,17 +43,6 @@ class GenTree(MountMixins, OCIMixins):
     def __init__(self, config_file="config.toml", *args, **kwargs):
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
 
-    def build_bases(self, config):
-        """Builds the bases for the current config"""
-        if bases := config.bases:
-            for base in bases:
-                base.logger.info(
-                    "[%s] Building base: %s",
-                    colorize(config.file_display_name, "cyan"),
-                    colorize(base.name, "blue", bold=True),
-                )
-                self.build(config=base)
-
     def prepare_build(self, config):
         """Prepares the build environment for the passed config"""
         if config.clean_build:
@@ -75,56 +64,49 @@ class GenTree(MountMixins, OCIMixins):
 
         config.check_dir(["overlay_root", "lower_root", "work_root", "upper_root"])
 
+    def build_bases(self, config):
+        """Builds the bases for the current config"""
+        if bases := config.bases:
+            for base in bases:
+                base.logger.info(
+                    "[%s] Building base: %s",
+                    colorize(config.file_display_name, "cyan"),
+                    colorize(base.name, "blue", bold=True),
+                )
+                self.build(config=base)
+
     @preserve_world
-    def deploy_base(self, config, base, dest=None, deployed_bases=None):
+    def deploy_base(self, config, base, dest, deployed_bases=None, pretend=False):
         """Deploys bases over the config lower root. Recursively deploys bases of the base."""
-        dest = dest or config.lower_root
-        deployed_bases = deployed_bases or []
-        for sub_base in base.bases:
-            if sub_base.name in deployed_bases:
-                self.logger.debug("Skipping base as it has already been deployed: %s", sub_base.name)
-                continue
-            self.deploy_base(config=config, base=sub_base, dest=dest, deployed_bases=deployed_bases)
-            deployed_bases.append(sub_base.name)
-        config.logger.info(
-            "[%s] Unpacking base layer to build root: %s",
-            colorize(base.name, "blue"),
-            colorize(dest, "yellow"),
-        )
+        deployed_bases = [] if deployed_bases is None else deployed_bases
+        if base.layer_archive in deployed_bases:
+            return base.logger.debug("Skipping base as it has already been deployed: %s", base.layer_archive)
+
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
                 tar.extractall(dest, filter=config.whiteout_filter)
         except ReadError as e:
-            raise RuntimeError(f"[{config.name}] Failed to extract base layer: {base.layer_archive}") from e
+            raise RuntimeError(f"[{base.name}] Failed to extract base layer: {base.layer_archive}") from e
 
         # Apply opaques and whiteouts to adhere to the OCI spec, from OCIMixins
         self.apply_opaques(dest, config.opaques)
         self.apply_whiteouts(dest, config.whiteouts)
 
-    def activate_seed(self, config):
-        """Mounts an overlayfs in a user namespace for the seed"""
-        config.logger.info(
-            "[%s] Activating seed: %s",
-            colorize(config.name, "blue"),
-            colorize(config.seed, "cyan"),
-        )
-        self.mount_seed(config)
-
-    def deploy_bases(self, config, deployed_bases=None):
+    def deploy_bases(self, config, dest=None, deployed_bases=None, pretend=False):
         """Deploys the bases to the lower dir for the current config.
         Mounts an overlayfs on the build root."""
+        dest = dest or config.lower_root
         bases = getattr(config, "bases")
         if not bases:
             return
-        # Add something so subsequent deploys don't init a new list
-        deployed_bases = deployed_bases or [config.name]
 
+        deployed_bases = [] if deployed_bases is None else deployed_bases
         for base in bases:
-            if base.name in deployed_bases:
-                config.logger.debug("Skipping base as it has already been deployed: %s", base.name)
-                continue
-            self.deploy_base(config=config, base=base, deployed_bases=deployed_bases)
-            deployed_bases.append(base.name)
+            self.logger.debug("[%s] Handling base: %s", config.name, base.name)
+            self.deploy_bases(config=base, dest=dest, deployed_bases=deployed_bases, pretend=pretend)
+            self.deploy_base(config=config, base=base, dest=dest, deployed_bases=deployed_bases, pretend=pretend)
+            deployed_bases.append(base.layer_archive)
+        return deployed_bases
 
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
@@ -160,7 +142,7 @@ class GenTree(MountMixins, OCIMixins):
         )
         self.run_emerge(["--root", config.overlay_root, "--unmerge", *packages], config=config)
 
-    def build(self, config, no_pack=False):
+    def build(self, config):
         """Builds all bases and branches under the current config
         Builds/installs packages in the config build root
         Unmerges packages in the config unmerge list
@@ -181,24 +163,22 @@ class GenTree(MountMixins, OCIMixins):
         config.set_portage_env()
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
-        if not no_pack:
-            self.pack(config=config)
+        config.cleaner.clean(config.overlay_root)
+        self.pack(config=config)
 
-        return True
-
-    def pack(self, config, pack_all=False):
-        """Packs the built tree into {config.layer_archive}.
-        Unmounts the build root if it is a mount."""
-        pack_root = config.overlay_root if not config.bases or pack_all else config.upper_root
+    def pack(self, config):
+        """Packs the upper dir of the layer into {config.layer_archive}.
+        The layer archive will be {config.seed}-{config.name} unless  `output_file` is set."""
         config.logger.info(
             "[%s] Packing tree: %s",
             colorize(config.name, "blue", bold=True),
-            colorize(pack_root, "yellow", bright=True),
+            colorize(config.layer_archive, "yellow", bright=True),
         )
+
         with TarFile.open(config.layer_archive, "w") as tar:
-            for file in pack_root.rglob("*"):
-                archive_path = file.relative_to(pack_root)
-                config.logger.log(5, f"[{pack_root}] Adding file: {archive_path}")
+            for file in config.upper_root.rglob("*"):
+                archive_path = file.relative_to(config.upper_root)
+                config.logger.log(5, f"[{config.upper_root}] Adding file: {archive_path}")
                 try:
                     tar.add(
                         file,
@@ -207,7 +187,7 @@ class GenTree(MountMixins, OCIMixins):
                         recursive=False,
                     )
                 except WhiteoutError as e:
-                    self.logger.debug("Whiteout detected: %s", e)
+                    config.logger.log(5, e)
                     tar.addfile(e.whiteout)
 
         self.logger.info(
@@ -215,6 +195,41 @@ class GenTree(MountMixins, OCIMixins):
             colorize(config.name, "blue", bold=True),
             colorize(config.layer_archive, "green", bold=True),
             colorize("{:.2f} MB".format(config.layer_archive.stat().st_size / 2**20), "green", bright=True),
+        )
+
+    def pack_all(self, config):
+        """Packs all layers in the config into the output file"""
+        config.logger.info(
+            "[%s] Packing all layers into: %s",
+            colorize(config.name, "blue", bold=True),
+            colorize(config.output_archive, "green", bright=True),
+        )
+
+        bases = self.deploy_bases(config=config, pretend=True)
+        bases.append(config.layer_archive)
+        self.logger.info("[%s] Packing bases: %s", colorize(config.name, "blue"), ", ".join(map(str, bases)))
+        with TarFile.open(config.output_archive, "w") as tar:
+            tar_filter = self.config.whiteout_filter
+            for base in bases:
+                self.logger.debug("[%s] Adding base archive: %s", config.name, base)
+                with TarFile.open(base, "r") as base_tar:
+                    for file in base_tar:
+                        if f := tar_filter(file):
+                            self.logger.log(5, f"[{base}] Adding file: {f.name}")
+                            if f.isreg():  # Add the file contents if it's a regular file
+                                data = base_tar.extractfile(f)
+                                tar.addfile(f, fileobj=data)
+                            else:  # Otherwise, add the header only
+                                tar.addfile(f)
+                        else:  # Skip filtered files
+                            self.logger.log(5, "[%s] Skipping file: %s", config.name, file.name)
+                    self.apply_tar_whiteouts(tar, config.whiteouts)  # apply whiteouts to the final archive
+
+        self.logger.info(
+            "[%s] Created final archive: %s (%s)",
+            colorize(config.name, "blue", bold=True),
+            colorize(config.output_archive, "green", bold=True),
+            colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green", bright=True),
         )
 
     def init_namespace(self):
@@ -235,5 +250,5 @@ class GenTree(MountMixins, OCIMixins):
         Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
         self.init_namespace()
         self.logger.info("Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
-        if self.build(config=self.config, no_pack=True):  # If there is nothing to build, don't pack
-            self.pack(config=self.config, pack_all=True)
+        self.build(config=self.config)
+        self.pack_all(config=self.config)  # Pack the entire tree

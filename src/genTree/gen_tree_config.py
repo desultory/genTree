@@ -6,6 +6,7 @@ from typing import Optional, Union
 from zenlib.types import validatedDataclass
 from zenlib.util import colorize, handle_plural, pretty_print
 
+from .build_cleaner import BuildCleaner
 from .gen_tree_tar_filter import GenTreeTarFilter
 from .portage_types import EmergeBools, PortageFlags
 from .whiteout_filter import WhiteoutFilter
@@ -34,6 +35,7 @@ CHILD_RESTRICTED = [
     "config_dir",
     "_config_dir",
     "confroot",
+    "output_file",
 ]
 
 
@@ -71,8 +73,9 @@ class GenTreeConfig:
     # Profiles can be set in any config and are applied before the emerge
     profile: str = "default/linux/amd64/23.0"
     profile_repo: str = "gentoo"
+    # Archive configuration
     archive_extension: str = ".tar"
-    output_file: Path = None  # Override the output file
+    output_file: Path = None  # Override the output file for the final archive
     # Other environment variables
     use: PortageFlags = None
     features: PortageFlags = None
@@ -83,16 +86,9 @@ class GenTreeConfig:
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
-    # Tar filters
-    tar_filter_whiteout: bool = True  # Filter whiteout files
-    tar_filter_dev: bool = True  # Filters character and block devices
-    tar_filter_man: bool = True  # Filters manual pages
-    tar_filter_docs: bool = True  # Filters documentation
-    tar_filter_include: bool = True  # Filters included headers
-    tar_filter_charmaps: bool = True  # Filters charmaps
-    tar_filter_locales: bool = False  # Filters locales
-    tar_filter_completions: bool = True  # Filters shell completions
-    tar_filter_vardbpkg: bool = False  # Filters /var/db/pkg
+    # Build cleaner
+    clean_filter_options: dict = None  # Options for the clean filter
+    tar_filter_options: dict = None  # Options for the tar filter
     # whiteout
     whiteouts: list = None  # List of paths to "whiteout" in the lower layer
     opaques: list = None  # List of paths to "opaque" in the lower layer
@@ -133,20 +129,24 @@ class GenTreeConfig:
             return self.on_conf_root("config")
 
     @property
+    def buildname(self):
+        return f"{self.seed}-{self.name}"
+
+    @property
     def overlay_root(self):
-        return Path("/builds") / self.name
+        return Path("/builds") / self.buildname
 
     @property
     def lower_root(self):
-        return self.overlay_root.with_name(f"{self.name}_lower")
+        return self.overlay_root.with_name(f"{self.buildname}_lower")
 
     @property
     def work_root(self):
-        return self.overlay_root.with_name(f"{self.name}_work")
+        return self.overlay_root.with_name(f"{self.buildname}_work")
 
     @property
     def upper_root(self):
-        return self.overlay_root.with_name(f"{self.name}_upper")
+        return self.overlay_root.with_name(f"{self.buildname}_upper")
 
     @property
     def config_mount(self):
@@ -179,15 +179,22 @@ class GenTreeConfig:
         return self.overlay_root.with_suffix(self.archive_extension)
 
     @property
+    def output_archive(self):
+        if self.output_file:
+            return Path("/builds") / self.output_file
+        return self.overlay_root.with_stem(f"{self.buildname}-full").with_suffix(self.archive_extension)
+
+    @property
     def tar_filter(self):
-        filter_args = {}
-        for f_name in [a.replace("tar_filter_", "") for a in self.__dataclass_fields__ if a.startswith("tar_filter_")]:
-            filter_args[f"filter_{f_name}"] = getattr(self, f"tar_filter_{f_name}")
-        return GenTreeTarFilter(logger=self.logger, **filter_args)
+        return GenTreeTarFilter(logger=self.logger, **self.tar_filter_options)
 
     @property
     def whiteout_filter(self):
         return WhiteoutFilter(logger=self.logger, whiteouts=self.whiteouts, opaques=self.opaques)
+
+    @property
+    def cleaner(self):
+        return BuildCleaner(logger=self.logger, **self.clean_filter_options)
 
     @property
     def file_display_name(self):
@@ -224,7 +231,7 @@ class GenTreeConfig:
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
-        from . import DEFAULT_FEATURES
+        from . import DEFAULT_CLEAN_FILTER_OPTIONS, DEFAULT_FEATURES, DEFAULT_TAR_FILTER_OPTIONS
 
         config = Path(config_file)
         if not config.exists():
@@ -246,11 +253,13 @@ class GenTreeConfig:
             raise ValueError("Seed must be set in the top level config")
 
         for key, value in self.config.items():
-            if key in ["name", "emerge_bools", "logger", "use", "features", "bases", "whiteouts"]:
+            if key in ["name", "emerge_bools", "logger", "use", "features", "bases", "whiteouts", "tar_filter_options"]:
                 continue
             setattr(self, key, value)
 
         self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
+        self.clean_filter_options = DEFAULT_CLEAN_FILTER_OPTIONS.copy() | self.config.get("clean_filter_options", {})
+        self.tar_filter_options = DEFAULT_TAR_FILTER_OPTIONS.copy() | self.config.get("tar_filter_options", {})
         self.load_use()
         self.load_emerge_bools()
 

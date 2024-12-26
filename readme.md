@@ -39,7 +39,11 @@ use = "nginx"
 packages = ["www-servers/nginx"]
 unmerge = ["sys-devel/gcc"]
 
-tar_filter_vardbpkg = true
+[clean_filter_options]
+charmaps = true  # Delete charmaps before packing
+
+[tar_filter_options]
+locales = true # Filter locales when packing
 ```
 
 * `packages` (list) - The packages to emerge.
@@ -60,18 +64,22 @@ USE flags will not be inherited from the parent unless `inherit_use` is set to t
 
 FEATURES are inherited by default.
 
-### Tar flters
+### filters
 
-Several filters are available for use when packing layer tarballs:
+Several filters are available for cleaning and packing packing layer tarballs:
 
-* `tar_filter_whiteouts` (true) - Filters OCI whiteouts. (.wh. files)
-* `tar_filter_dev` (true) - Filters character and block devices.
-* `tar_filter_man` (true) - Filters man pages.
-* `tar_filter_docs` (true) - Filters documentation.
-* `tar_filter_include` (false) - Filters headers/includes.
-* `tar_filter_charmaps` (true) - Filters charmaps.
-* `tar_filter_completions` (true) - Filters locales.
-* `tar_filter_vardbpkg` (false) - Filters `/var/db/pkg`.
+* `man` (true) - Filters man pages.
+* `docs` (true) - Filters documentation.
+* `include` (true) - Filters headers/includes.
+* `charmaps` (true) - Filters charmaps.
+* `completions` (true) - Filters shell completions.
+* `locales` (false) - Filters locales.
+* `vardbpkg` (false) - Filters `/var/db/pkg`.
+
+#### Tar filters
+
+* `whiteouts` (true) - Handles OCI whiteouts. (.wh. files)
+* `dev` (true) - Filters character and block devices.
 
 ### Profile
 

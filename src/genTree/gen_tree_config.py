@@ -7,22 +7,11 @@ from zenlib.types import validatedDataclass
 from zenlib.util import colorize, handle_plural, pretty_print
 
 from .gen_tree_tar_filter import GenTreeTarFilter
-from .portage_types import FlagBool, PortageFlags
+from .portage_types import PortageBools, PortageFlags
 from .whiteout_filter import WhiteoutFilter
-
-DEFAULT_FEATURES = [
-    "buildpkg",
-    "binpkg-multi-instance",
-    "parallel-fetch",
-    "parallel-install",
-    "-ebuild-locks",
-    "-merge-wait",
-    "-merge-sync",
-]
 
 ENV_VAR_INHERITED = ["features", "binpkg_format"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
-PORTAGE_BOOLS = ["nodeps", "with_bdeps", "usepkg", "verbose"]
 PORTAGE_STRS = ["jobs"]
 
 INHERITED_CONFIG = [
@@ -90,10 +79,7 @@ class GenTreeConfig:
     binpkg_format: str = "gpkg"
     # portage args
     jobs: int = 8
-    with_bdeps: FlagBool = False
-    usepkg: FlagBool = True
-    verbose: bool = True
-    nodeps: bool = False
+    portage_bools: PortageBools = None
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -229,6 +215,8 @@ class GenTreeConfig:
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
+        from . import DEFAULT_FEATURES
+
         config = Path(config_file)
         if not config.exists():
             raise FileNotFoundError(f"Config file does not exist: {config_file}")
@@ -249,12 +237,13 @@ class GenTreeConfig:
             raise ValueError("Seed must be set in the top level config")
 
         for key, value in self.config.items():
-            if key in ["name", "logger", "use", "features", "bases", "whiteouts"]:
+            if key in ["name", "portage_bools", "logger", "use", "features", "bases", "whiteouts"]:
                 continue
             setattr(self, key, value)
 
         self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
         self.load_use()
+        self.load_portage_bools()
 
         self.bases = []
         for base in self.config.get("bases", []):
@@ -262,6 +251,15 @@ class GenTreeConfig:
 
         self.whiteouts = self.config.get("whiteouts", [])
         self.opaques = self.config.get("opaques", [])
+
+    def load_portage_bools(self):
+        """Loads portage boolean flags from the config"""
+        from . import DEFAULT_PORTAGE_BOOLS
+
+        self.portage_bools = DEFAULT_PORTAGE_BOOLS.copy()
+        if portage_bools := self.config.get("portage_bools"):
+            self.portage_bools.update(portage_bools)
+            self.logger.debug("Loaded portage boolean flags: %s", self.portage_bools)
 
     def load_use(self):
         """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""
@@ -308,11 +306,8 @@ class GenTreeConfig:
         for str_arg in PORTAGE_STRS:
             if getattr(self, str_arg):
                 args.extend([f"--{str_arg.replace('_', '-')}", str(getattr(self, str_arg))])
-        for bool_arg in PORTAGE_BOOLS:
-            if isinstance(getattr(self, bool_arg), FlagBool):
-                args.append(f"--{bool_arg.replace('_', '-')}={getattr(self, bool_arg)}")
-            elif getattr(self, bool_arg):
-                args.append(f"--{bool_arg.replace('_', '-')}")
+        for bool_arg in self.portage_bools.values():
+            args.append(str(bool_arg))
         args += [*self.packages]
         return args
 

@@ -8,7 +8,7 @@ class MountMixins:
     def mount_root_overlay(self, config):
         """Mounts an overlayfs for the build root"""
         config.logger.info(
-            "[%s] Mounting overlayfs on: %s",
+            "[%s] Mounting build overlayfs on: %s",
             colorize(config.name, "blue"),
             colorize(config.overlay_root, "cyan"),
         )
@@ -27,8 +27,6 @@ class MountMixins:
 
     def mount_config_overlay(self, config):
         """Mounts a config overlay over /etc/portage"""
-        config_dir = Path("/config") / config.config_overlay
-
         if Path("/etc/portage").is_mount():
             config.logger.info("Unmounting config overlay on /etc/portage")
             try:
@@ -38,6 +36,9 @@ class MountMixins:
                     config.logger.warning("Unable to update userspace mount table unmounting /etc/portage.")
                 else:
                     raise e
+        if not config.config_overlay:
+            return config.logger.debug("No config overlay specified, skipping config overlay mount")
+        config_dir = Path("/config") / config.config_overlay
 
         if not config_dir.exists():
             if config.config_overlay:

@@ -1,3 +1,6 @@
 bases = ["base"]
-nodeps = true
 packages = ["sys-libs/glibc"]
+
+
+[portage_bools]
+nodeps = true

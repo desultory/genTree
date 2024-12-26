@@ -1,3 +1,6 @@
+from collections import UserDict
+
+
 class FlagBool:
     """A boolean that represents as 'y' or 'n'"""
 
@@ -12,6 +15,26 @@ class FlagBool:
 
     def __str__(self):
         return "y" if self else "n"
+
+
+class PortageBools(UserDict):
+    """Dict of FlagBool objects"""
+
+    def __init__(self, flags):
+        super().__init__()
+        self.update(flags)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, FlagBool(value))
+
+    def __getitem__(self, key):
+        from . import PORTAGE_PLAIN_BOOLS
+
+        if key in PORTAGE_PLAIN_BOOLS:
+            if super().__getitem__(key):
+                return f"--{key}"
+
+        return f"--{key.replace('_', '-')}={super().__getitem__(key)}"
 
 
 class PortageFlags(set):

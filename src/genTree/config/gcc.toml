@@ -1,5 +1,6 @@
-name = "gcc"
 bases = ["base"]
 
 packages = ["sys-devel/gcc"]
+
+[portage_bools]
 nodeps = true

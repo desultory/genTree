@@ -1,4 +1,3 @@
-name = "nginx"
 output_file = "nginx.tar"
 
 seed = "stage3-openrc"

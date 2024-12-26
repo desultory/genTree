@@ -132,7 +132,7 @@ class GenTree(MountMixins, OCIMixins):
         ret = run(["emerge", *args], capture_output=True)
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
-            raise RuntimeError(f"Failed to run emerge with args: {args}\n{ret.stdout.decode()}\n{ret.stderr.decode()}")
+            raise RuntimeError(f"Failed to run: {args}\n{ret.stdout.decode()}\n{ret.stderr.decode()}")
 
         return ret
 
@@ -189,9 +189,9 @@ class GenTree(MountMixins, OCIMixins):
         Unmounts the build root if it is a mount."""
         pack_root = config.overlay_root if not config.bases or pack_all else config.upper_root
         config.logger.info(
-            "[%s] Packing tree to: %s",
+            "[%s] Packing tree: %s",
             colorize(config.name, "blue", bold=True),
-            colorize(config.layer_archive, "green"),
+            colorize(pack_root, "yellow", bright=True),
         )
         with TarFile.open(config.layer_archive, "w") as tar:
             for file in pack_root.rglob("*"):

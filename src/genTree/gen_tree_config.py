@@ -173,7 +173,9 @@ class GenTreeConfig:
 
     @property
     def layer_archive(self):
-        return self.output_file or self.overlay_root.with_suffix(self.archive_extension)
+        if self.output_file:
+            return Path("/builds") / self.output_file
+        return self.overlay_root.with_suffix(self.archive_extension)
 
     @property
     def tar_filter(self):
@@ -255,8 +257,9 @@ class GenTreeConfig:
     def load_portage_bools(self):
         """Loads portage boolean flags from the config"""
         from . import DEFAULT_PORTAGE_BOOLS
+        from copy import deepcopy
 
-        self.portage_bools = DEFAULT_PORTAGE_BOOLS.copy()
+        self.portage_bools = deepcopy(DEFAULT_PORTAGE_BOOLS)
         if portage_bools := self.config.get("portage_bools"):
             self.portage_bools.update(portage_bools)
             self.logger.debug("Loaded portage boolean flags: %s", self.portage_bools)
@@ -302,13 +305,12 @@ class GenTreeConfig:
 
     def get_emerge_args(self):
         """Gets emerge args for the current config"""
+        self.logger.warning(self.config)
         args = ["--root", str(self.overlay_root)]
         for str_arg in PORTAGE_STRS:
             if getattr(self, str_arg):
                 args.extend([f"--{str_arg.replace('_', '-')}", str(getattr(self, str_arg))])
-        for bool_arg in self.portage_bools.values():
-            args.append(str(bool_arg))
-        args += [*self.packages]
+        args += [*str(self.portage_bools).split(), *self.packages]
         return args
 
     def set_portage_env(self):

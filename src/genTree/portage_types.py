@@ -33,8 +33,13 @@ class PortageBools(UserDict):
         if key in PORTAGE_PLAIN_BOOLS:
             if super().__getitem__(key):
                 return f"--{key}"
+            return
 
-        return f"--{key.replace('_', '-')}={super().__getitem__(key)}"
+        bool_str = f"--{key.replace('_', '-')}={super().__getitem__(key)}"
+        return bool_str
+
+    def __str__(self):
+        return " ".join((value for value in self.values() if value))
 
 
 class PortageFlags(set):

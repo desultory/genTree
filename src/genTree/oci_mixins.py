@@ -33,10 +33,3 @@ class OCIMixins:
                     whiteout_path.unlink()
             else:
                 self.logger.warning("Whiteout target not found: %s", colorize(whiteout_path, "red"))
-
-    def apply_tar_whiteouts(self, tar_file, whiteouts):
-        """Applies whiteouts to a tar file"""
-        for whiteout in whiteouts:
-            if whiteout in tar_file:
-                self.logger.debug("[%s] Whiting out: %s", tar_file, whiteout)
-                tar_file.remove(whiteout)

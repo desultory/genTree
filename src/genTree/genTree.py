@@ -208,7 +208,8 @@ class GenTree(MountMixins, OCIMixins):
         bases = self.deploy_bases(config=config, pretend=True)
         bases.append(config.layer_archive)
         self.logger.info("[%s] Packing bases: %s", colorize(config.name, "blue"), ", ".join(map(str, bases)))
-        with TarFile.open(config.output_archive, "w") as tar:
+        pre_tar = config.output_archive.with_suffix(".pre.tar")
+        with TarFile.open(pre_tar, "w") as tar:
             tar_filter = self.config.whiteout_filter
             for base in bases:
                 self.logger.debug("[%s] Adding base archive: %s", config.name, base)
@@ -217,13 +218,28 @@ class GenTree(MountMixins, OCIMixins):
                         if f := tar_filter(file):
                             self.logger.log(5, f"[{base}] Adding file: {f.name}")
                             if f.isreg():  # Add the file contents if it's a regular file
-                                data = base_tar.extractfile(f)
-                                tar.addfile(f, fileobj=data)
+                                tar.addfile(f, base_tar.extractfile(f))
                             else:  # Otherwise, add the header only
                                 tar.addfile(f)
                         else:  # Skip filtered files
                             self.logger.log(5, "[%s] Skipping file: %s", config.name, file.name)
-                    self.apply_tar_whiteouts(tar, config.whiteouts)  # apply whiteouts to the final archive
+        if not config.whiteouts:
+            self.logger.info("[%s] No whiteouts found, renaming pre tar to final tar", config.name)
+            pre_tar.rename(config.output_archive)
+        else:
+            self.logger.debug("[%s] Applying whiteouts:\n%s", config.name, config.whiteouts)
+            with TarFile.open(config.output_archive, "w") as tar:
+                with TarFile.open(pre_tar, "r") as pre:
+                    for file in pre:
+                        if file.name in config.whiteouts:
+                            self.logger.debug("[%s] Skipping whiteout: %s", config.name, file.name)
+                            continue
+                        elif file.isreg():
+                            self.logger.debug("[%s] Adding file: %s", config.name, file.name)
+                            tar.addfile(file, pre.extractfile(file))
+                        else:
+                            tar.addfile(file)
+            pre_tar.unlink()
 
         self.logger.info(
             "[%s] Created final archive: %s (%s)",

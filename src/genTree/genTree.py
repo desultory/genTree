@@ -209,9 +209,10 @@ class GenTree(MountMixins, OCIMixins):
                     tar.addfile(e.whiteout)
 
         self.logger.info(
-            "[%s] Created archive: %s",
+            "[%s] Created archive: %s (%s)",
             colorize(config.name, "blue", bold=True),
             colorize(config.layer_archive, "green", bold=True),
+            colorize("{:.2f} MB".format(config.layer_archive.stat().st_size / 2**20), "green", bright=True),
         )
 
     def init_namespace(self):

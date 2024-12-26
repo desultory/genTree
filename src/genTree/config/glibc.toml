@@ -1,4 +1,3 @@
-name = "glibc"
 bases = ["base"]
 nodeps = true
 packages = ["sys-libs/glibc"]

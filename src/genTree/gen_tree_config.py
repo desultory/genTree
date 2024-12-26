@@ -236,7 +236,7 @@ class GenTreeConfig:
         with open(config, "rb") as f:
             self.config = load(f)
 
-        self.name = self.config["name"]
+        self.name = self.config.get("name", config.stem)
         self.logger = self.logger.parent.getChild(self.name) if self.logger.parent else self.logger.getChild(self.name)
         self.logger.debug(f"[{config_file}] Loaded config: {self.config}")
 

@@ -1,3 +1,2 @@
-name = "tini"
 bases = ["glibc"]
 packages = ["sys-process/tini"]

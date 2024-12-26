@@ -1,5 +1,5 @@
 from pathlib import Path
-from subprocess import run
+from subprocess import CalledProcessError, run
 
 from zenlib.util import colorize
 
@@ -26,12 +26,18 @@ class MountMixins:
         )
 
     def mount_config_overlay(self, config):
-        """ Mounts a config overlay over /etc/portage"""
+        """Mounts a config overlay over /etc/portage"""
         config_dir = Path("/config") / config.config_overlay
 
         if Path("/etc/portage").is_mount():
             config.logger.info("Unmounting config overlay on /etc/portage")
-            run(["umount", "/etc/portage"], check=True)
+            try:
+                run(["umount", "/etc/portage"], check=True, capture_output=True)
+            except CalledProcessError as e:
+                if e.returncode == 16:
+                    config.logger.warning("Unable to update userspace mount table unmounting /etc/portage.")
+                else:
+                    raise e
 
         if not config_dir.exists():
             if config.config_overlay:
@@ -47,9 +53,7 @@ class MountMixins:
                 d.mkdir(parents=True)
 
         config.logger.info(
-            "[%s] Mounting config overlay: %s",
-            colorize(config.name, "green"),
-            colorize(config_dir, "blue")
+            "[%s] Mounting config overlay: %s", colorize(config.name, "green"), colorize(config_dir, "blue")
         )
         run(
             [

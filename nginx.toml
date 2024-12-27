@@ -1,8 +1,9 @@
 seed = "stage3-openrc"
-bases = ["tini", "gcc"]
+bases = ["tini", "gcc", "ca-certificates"]
 
 use = "nginx"
 packages = ["www-servers/nginx"]
 unmerge = ["sys-devel/gcc"]
 
-tar_filter_vardbpkg = true
+[tar_filter_options]
+vardbpkg = true

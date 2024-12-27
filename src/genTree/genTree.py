@@ -127,7 +127,7 @@ class GenTree(MountMixins, OCIMixins):
             config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
             return
 
-        self.run_emerge(config.get_emerge_args(), config=config)
+        self.run_emerge(config.emerge_args, config=config)
 
         if config.depclean:
             self.run_emerge(["--root", config.overlay_root, "--depclean", "--with-bdeps=n"], config=config)

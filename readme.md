@@ -102,15 +102,25 @@ The profile can be set using:
 * `profile` (default/linux/amd64/23.0) - The profile to use.
 * `profile_repos` (gentoo) - The repository source for the profile.
 
+### emerge args
+
+arguments with values can be set like:
+
+````
+[emerge_args]
+jobs = 4
+```
+
+
 ### emerge bools
 
 boolean operators to the `emerge` commad can be set using:
 
-`
+```
 [emerge_bools]
 verbose = true
 with_bdeps = false
-`
+```
 
 > Operators which cannot be set =n should be defined in PORTAGE_PLAIN_BOOLS
 

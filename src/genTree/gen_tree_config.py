@@ -13,7 +13,6 @@ from .whiteout_filter import WhiteoutFilter
 
 ENV_VAR_INHERITED = ["features", "binpkg_format"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
-PORTAGE_STRS = ["jobs"]
 
 INHERITED_CONFIG = [
     *ENV_VAR_INHERITED,
@@ -83,7 +82,7 @@ class GenTreeConfig:
     features: PortageFlags = None
     binpkg_format: str = "gpkg"
     # portage args
-    jobs: int = 8
+    emerge_args: dict = None
     emerge_bools: EmergeBools = None
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
@@ -205,6 +204,18 @@ class GenTreeConfig:
             return self.config_file.name
         return self.config_file
 
+    @property
+    def emerge_string_args(self):
+        return [f"--{k}={v}" for k, v in self.emerge_strs.items()]
+
+    @property
+    def emerge_bool_args(self):
+        return str(self.emerge_bools).split()
+
+    @property
+    def emerge_flags(self):
+        return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
+
     @handle_plural
     def add_base(self, base: Union[str, Path]):
         """Adds a base is a config which is used as an image base for the current config"""
@@ -234,8 +245,7 @@ class GenTreeConfig:
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
-        from . import DEFAULT_CLEAN_FILTER_OPTIONS, DEFAULT_FEATURES, DEFAULT_TAR_FILTER_OPTIONS
-
+        from . import DEFAULT_FEATURES
         config = Path(config_file)
         if not config.exists():
             raise FileNotFoundError(f"Config file does not exist: {config_file}")
@@ -261,8 +271,7 @@ class GenTreeConfig:
             setattr(self, key, value)
 
         self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
-        self.clean_filter_options = DEFAULT_CLEAN_FILTER_OPTIONS.copy() | self.config.get("clean_filter_options", {})
-        self.tar_filter_options = DEFAULT_TAR_FILTER_OPTIONS.copy() | self.config.get("tar_filter_options", {})
+        self.load_defaults(["clean_filter_options", "tar_filter_options", "emerge_args"])
         self.load_use()
         self.load_emerge_bools()
 
@@ -272,6 +281,12 @@ class GenTreeConfig:
 
         self.whiteouts = self.config.get("whiteouts", [])
         self.opaques = self.config.get("opaques", [])
+
+    @handle_plural
+    def load_defaults(self, argname):
+        from importlib import import_module
+        defaults = getattr(import_module("genTree"), f"default_{argname}".upper(), {})
+        setattr(self, argname, defaults.copy() | self.config.get(argname, {}))
 
     def load_emerge_bools(self):
         """Loads emerge boolean flags from the config"""
@@ -323,15 +338,6 @@ class GenTreeConfig:
             Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}"), target_is_directory=True
         )
         self.logger.debug("Set portage profile symlink: %s -> %s", profile_sym, profile_sym.resolve())
-
-    def get_emerge_args(self):
-        """Gets emerge args for the current config"""
-        args = ["--root", str(self.overlay_root)]
-        for str_arg in PORTAGE_STRS:
-            if getattr(self, str_arg):
-                args.extend([f"--{str_arg.replace('_', '-')}", str(getattr(self, str_arg))])
-        args += [*str(self.emerge_bools).split(), *self.packages]
-        return args
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""

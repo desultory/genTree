@@ -15,6 +15,10 @@ DEFAULT_EMERGE_BOOLS = EmergeBools(
     }
 )
 
+DEFAULT_EMERGE_ARGS = {
+    "jobs": 8,  # Number of jobs to run in parallel
+}
+
 DEFAULT_FEATURES = [
     "buildpkg",  # Build binary packages
     "binpkg-multi-instance",  # Allow multiple versions of binary packages
@@ -38,8 +42,8 @@ DEFAULT_TAR_FILTER_OPTIONS = {
 }
 
 DEFAULT_CLEAN_FILTER_OPTIONS = {
-#    "whiteout": True,
-#    "dev": True,
+    #    "whiteout": True,
+    #    "dev": True,
     "man": True,
     "docs": True,
     "include": True,

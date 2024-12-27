@@ -106,7 +106,7 @@ The profile can be set using:
 
 arguments with values can be set like:
 
-````
+```
 [emerge_args]
 jobs = 4
 ```

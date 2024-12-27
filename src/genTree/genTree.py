@@ -1,4 +1,5 @@
 from os import chroot
+from pathlib import Path
 from shutil import rmtree
 from subprocess import run
 from tarfile import ReadError, TarFile
@@ -270,9 +271,21 @@ class GenTree(MountMixins, OCIMixins):
             colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green", bright=True),
         )
 
+    def clean_seed_overlay(self):
+        """ Cleans the seed upper and work dirs"""
+        for root in ["upper", "work"]:
+            seed_root = Path(getattr(self.config, f"{root}_seed_root"))
+            if seed_root.exists():
+                self.logger.info("Cleaning seed root: %s", colorize(seed_root, "red"))
+                rmtree(seed_root)
+            else:
+                self.logger.debug("Seed root does not exist: %s", seed_root)
+
     def init_namespace(self):
         """Initializes the namespace for the current config"""
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
+        if self.config.clean_seed:
+            self.clean_seed_overlay()
         self.mount_seed_overlay()
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")

@@ -118,6 +118,14 @@ Several components are mounted into the build namespace as read-only bind mounts
 
 * `bind_system_repos` (true) - mounts the path `system_repos` to `/var/db/repos`.
 
+### seed (sysroot) overlay
+
+A seed must be defined in the top level config. Seeds are used as the lower layer in an overlay which is chrooted into.
+
+This layer will persist between builds, and will not be cleaned unless `clean_seed` is set to true.
+
+When enabled, `clean_seed` recursivedly removes the uppper and work directories of the seed overlay.
+
 ### Config overlay
 
 Configuration overrides to be mounted over `/etc/portage` can be specified using:
@@ -132,4 +140,7 @@ The build are performed in overlays which are mounted over `/builds` in the name
 > `conf_root` is ~/.local/share/genTree by default
 
 The upper_dir is used to build layers between stages, and the mount point is used for the outermost layer.
+
+The build upper and work directories are cleaned before builds unless `clean_build` is set to false.
+
 

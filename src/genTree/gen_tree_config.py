@@ -60,6 +60,7 @@ class GenTreeConfig:
     depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
     packages: list = None  # List of packages to install on the layer
     unmerge: list = None  # List of packages to unmerge on the layer
+    clean_seed: bool = False  # Cleans the seed directory before chrooting
     clean_build: bool = True  # Cleans the layer build dir before copying base layers
     rebuild: bool = False  # Rebuilds the layer from scratch
     inherit_use: bool = False  # Inherit USE flags from the parent

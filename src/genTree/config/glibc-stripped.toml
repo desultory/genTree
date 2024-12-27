@@ -1,6 +1,9 @@
 bases = ["base"]
 packages = ["sys-libs/glibc"]
 
+[clean_filter_options]
+locales = true
+charmaps = true
 
 [emerge_bools]
 nodeps = true

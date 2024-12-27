@@ -2,3 +2,4 @@ packages = ["app-misc/ca-certificates"]
 
 [emerge_bools]
 nodeps = true
+oneshot = true

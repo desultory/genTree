@@ -1,2 +1,2 @@
-bases = ["glibc"]
+bases = ["glibc-stripped"]
 packages = ["sys-process/tini"]

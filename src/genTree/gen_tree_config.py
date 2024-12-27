@@ -355,7 +355,7 @@ class GenTreeConfig:
             environ[env] = str(env_value)
 
         if use_flags := self.use:
-            self.logger.info("Setting USE flags: %s", use_flags)
+            self.logger.info(" .~. [%s] Setting USE flags: %s", colorize(self.name, "yellow"), use_flags)
             environ["USE"] = str(use_flags)
 
     def __str__(self):

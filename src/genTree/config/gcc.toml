@@ -4,3 +4,4 @@ packages = ["sys-devel/gcc"]
 
 [emerge_bools]
 nodeps = true
+oneshot = true

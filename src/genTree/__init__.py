@@ -4,7 +4,7 @@ from .types import EmergeBools
 __all__ = ["EmergeBools", "GenTree"]
 
 # Some bools don't support y/n, just --bool
-PORTAGE_PLAIN_BOOLS = ["nodeps"]
+PORTAGE_PLAIN_BOOLS = ["nodeps", "oneshot"]
 
 DEFAULT_EMERGE_BOOLS = EmergeBools(
     {

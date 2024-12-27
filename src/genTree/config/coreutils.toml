@@ -1,3 +1,6 @@
 bases = ["base"]
 packages = ["sys-apps/coreutils"]
 
+[emerge_bools]
+oneshot = true
+

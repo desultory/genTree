@@ -1,0 +1,6 @@
+packages = ["dev-libs/openssl"]
+
+bases = ["ca-certificates"]
+
+[emerge_bools]
+oneshot = true

@@ -112,7 +112,7 @@ class GenTree(MountMixins, OCIMixins):
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
         self.logger.info(
-            "[%s] emerge %s", colorize(config.name, "green", bright=True, bold=True), " ".join(map(str, args))
+            " [E] [%s] emerge %s", colorize(config.name, "green", bright=True, bold=True), " ".join(map(str, args))
         )
         ret = run(["emerge", *args], capture_output=True)
         if ret.returncode:
@@ -138,7 +138,7 @@ class GenTree(MountMixins, OCIMixins):
 
         packages = config.unmerge or []
         config.logger.info(
-            "[%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
+            " [U] [%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
         )
         self.run_emerge(["--root", config.overlay_root, "--unmerge", *packages], config=config)
 
@@ -170,7 +170,7 @@ class GenTree(MountMixins, OCIMixins):
         """Packs the upper dir of the layer into {config.layer_archive}.
         The layer archive will be {config.seed}-{config.name} unless  `output_file` is set."""
         config.logger.info(
-            "[%s] Packing tree: %s",
+            " >:- [%s] Packing tree: %s",
             colorize(config.name, "blue", bold=True),
             colorize(config.layer_archive, "magenta"),
         )
@@ -200,7 +200,7 @@ class GenTree(MountMixins, OCIMixins):
     def pack_all(self, config):
         """Packs all layers in the config into the output file"""
         config.logger.info(
-            "[%s] Packing all layers into: %s",
+            " V:V [%s] Packing all layers into: %s",
             colorize(config.name, "blue", bold=True),
             colorize(config.output_archive, "green", bright=True),
         )
@@ -214,7 +214,7 @@ class GenTree(MountMixins, OCIMixins):
         bases = self.deploy_bases(config=config, pretend=True)
         bases.append(config.layer_archive)
         self.logger.info(
-            "[%s] Packing bases: %s", colorize(config.name, "blue"), colorize(", ".join(map(str, bases)), "cyan")
+            " #%%- [%s] Packing bases: %s", colorize(config.name, "blue"), colorize(", ".join(map(str, bases)), "cyan")
         )
         pre_tar = config.output_archive.with_suffix(".pre.tar")
         with TarFile.open(pre_tar, "w") as tar:
@@ -223,6 +223,10 @@ class GenTree(MountMixins, OCIMixins):
                 self.logger.debug("[%s] Adding base archive: %s", config.name, base)
                 with TarFile.open(base, "r") as base_tar:
                     for file in base_tar:
+                        # Don't add directories over existing symlinks
+                        if file.isdir() and file.name in tar.getnames():
+                            self.logger.debug("[%s] Skipping existing directory: %s", config.name, file.name)
+                            continue
                         if f := tar_filter(file):
                             self.logger.log(5, f"[{base}] Adding file: {f.name}")
                             re_add(tar, f, base_tar)
@@ -246,7 +250,7 @@ class GenTree(MountMixins, OCIMixins):
         if config.refilter:
             size = colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green")
             self.logger.info(
-                "[%s] Refiltering archive: %s (%s)",
+                " ~%%> [%s] Refiltering archive: %s (%s)",
                 colorize(config.name, "blue"),
                 colorize(config.output_archive, "yellow"),
                 size,

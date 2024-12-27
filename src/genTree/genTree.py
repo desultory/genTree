@@ -172,7 +172,7 @@ class GenTree(MountMixins, OCIMixins):
         config.logger.info(
             "[%s] Packing tree: %s",
             colorize(config.name, "blue", bold=True),
-            colorize(config.layer_archive, "yellow", bright=True),
+            colorize(config.layer_archive, "magenta"),
         )
 
         with TarFile.open(config.layer_archive, "w") as tar:

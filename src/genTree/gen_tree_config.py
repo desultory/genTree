@@ -11,6 +11,7 @@ from .gen_tree_tar_filter import GenTreeTarFilter
 from .portage_types import EmergeBools, PortageFlags
 from .whiteout_filter import WhiteoutFilter
 
+DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args"]
 ENV_VAR_INHERITED = ["features", "binpkg_format"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use"]
 
@@ -94,10 +95,6 @@ class GenTreeConfig:
     # whiteout
     whiteouts: list = None  # List of paths to "whiteout" in the lower layer
     opaques: list = None  # List of paths to "opaque" in the lower layer
-
-    def __post_init__(self, *args, **kwargs):
-        self.load_config(self.config_file or kwargs.get("config_file"))
-        self.process_kwargs(kwargs)
 
     def on_conf_root(self, path):
         return Path(self.conf_root).expanduser().resolve() / path
@@ -223,6 +220,10 @@ class GenTreeConfig:
             base = find_config(base)
         self.bases.append(GenTreeConfig(logger=self.logger, config_file=base, parent=self))
 
+    def __post_init__(self, *args, **kwargs):
+        self.load_config(self.config_file or kwargs.get("config_file"))
+        self.process_kwargs(kwargs)
+
     def inherit_parent(self):
         """Inherits config from the parent object"""
         self.logger.log(5, "Inheriting config from parent: %s", self.parent)
@@ -246,6 +247,7 @@ class GenTreeConfig:
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
         from . import DEFAULT_FEATURES
+
         config = Path(config_file)
         if not config.exists():
             raise FileNotFoundError(f"Config file does not exist: {config_file}")
@@ -257,7 +259,7 @@ class GenTreeConfig:
         self.logger = self.logger.parent.getChild(self.name) if self.logger.parent else self.logger.getChild(self.name)
         self.logger.debug(f"[{config_file}] Loaded config: {self.config}")
 
-        if getattr(self, "parent"):
+        if getattr(self, "parent"):  # Inherit the parent and restrict top-level only attributes
             for restricted in CHILD_RESTRICTED:
                 if restricted in self.config:
                     raise ValueError(f"Cannot set {restricted} in a child config")
@@ -265,13 +267,14 @@ class GenTreeConfig:
         elif "seed" not in self.config:
             raise ValueError("Seed must be set in the top level config")
 
+        self.load_defaults(DEF_ARGS)  # load defaults from the package __init__, then config
+
         for key, value in self.config.items():
-            if key in ["name", "emerge_bools", "logger", "use", "features", "bases", "whiteouts", "tar_filter_options"]:
-                continue
+            if key in ["name", "emerge_bools", "logger", "use", "features", "bases", "whiteouts", "opaques", *DEF_ARGS]:
+                continue  # Don't set these attributes directly
             setattr(self, key, value)
 
         self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
-        self.load_defaults(["clean_filter_options", "tar_filter_options", "emerge_args"])
         self.load_use()
         self.load_emerge_bools()
 
@@ -285,6 +288,7 @@ class GenTreeConfig:
     @handle_plural
     def load_defaults(self, argname):
         from importlib import import_module
+
         defaults = getattr(import_module("genTree"), f"default_{argname}".upper(), {})
         setattr(self, argname, defaults.copy() | self.config.get(argname, {}))
 
@@ -327,7 +331,7 @@ class GenTreeConfig:
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
         self.logger.info(
-            "[%s] Setting portage profile: %s", colorize(self.profile_repo, "yellow"), colorize(self.profile, "blue")
+            " ~-~ [%s] Setting portage profile: %s", colorize(self.profile_repo, "yellow"), colorize(self.profile, "blue")
         )
 
         profile_sym = Path("/etc/portage/make.profile")

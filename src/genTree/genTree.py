@@ -47,6 +47,9 @@ class GenTree(MountMixins, OCIMixins):
     def prepare_build(self, config):
         """Prepares the build environment for the passed config"""
         if config.clean_build:
+            config.logger.warning(
+                " -.- [%s] Cleaning root: %s", colorize(config.name, "blue"), colorize(config.overlay_root, "red")
+            )
             for root in ["overlay_root", "lower_root", "work_root", "upper_root"]:
                 root_dir = getattr(config, root)
                 if not root_dir.exists():
@@ -58,9 +61,7 @@ class GenTree(MountMixins, OCIMixins):
                         colorize(root_dir, "yellow"),
                     )
                     run(["umount", root_dir], check=True)
-                config.logger.warning(
-                    "[%s] Cleaning root: %s", colorize(config.name, "blue"), colorize(root_dir, "red")
-                )
+                config.logger.debug("Cleaning root: %s", root_dir)
                 rmtree(root_dir)
 
         config.check_dir(["overlay_root", "lower_root", "work_root", "upper_root"])
@@ -70,7 +71,7 @@ class GenTree(MountMixins, OCIMixins):
         if bases := config.bases:
             for base in bases:
                 base.logger.info(
-                    "[%s] Building base: %s",
+                    " +.+ [%s] Building base: %s",
                     colorize(config.file_display_name, "cyan"),
                     colorize(base.name, "blue", bold=True),
                 )
@@ -150,7 +151,7 @@ class GenTree(MountMixins, OCIMixins):
         self.build_bases(config=config)
         if config.layer_archive.exists() and not config.rebuild:
             return config.logger.warning(
-                "[%s] Skipping build, layer archive exists: %s",
+                " ... [%s] Skipping build, layer archive exists: %s",
                 colorize(config.name, "blue"),
                 colorize(config.layer_archive, "cyan"),
             )
@@ -275,7 +276,7 @@ class GenTree(MountMixins, OCIMixins):
         for root in ["upper", "work"]:
             seed_root = Path(getattr(self.config, f"{root}_seed_root"))
             if seed_root.exists():
-                self.logger.info("Cleaning seed root: %s", colorize(seed_root, "red"))
+                self.logger.info(" --- Cleaning seed root: %s", colorize(seed_root, "red"))
                 rmtree(seed_root)
             else:
                 self.logger.debug("Seed root does not exist: %s", seed_root)
@@ -292,13 +293,13 @@ class GenTree(MountMixins, OCIMixins):
         self.bind_mount(self.config.pkgdir, self.config.sysroot / "var/cache/binpkgs", readonly=False)
         self.bind_mount(self.config.build_dir, self.config.build_mount, recursive=True, readonly=False)
         self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)
-        self.logger.info("Chrooting into: %s", colorize(self.config.sysroot, "red"))
+        self.logger.info(" -/~ Chrooting into: %s", colorize(self.config.sysroot, "red"))
         chroot(self.config.sysroot)
 
     def build_tree(self):
         """Builds the tree in a namespaced chroot environment.
         Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
         self.init_namespace()
-        self.logger.info("Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
+        self.logger.info(" +++ Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
         self.build(config=self.config)
         self.pack_all(config=self.config)  # Pack the entire tree

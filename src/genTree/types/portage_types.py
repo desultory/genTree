@@ -28,7 +28,7 @@ class EmergeBools(UserDict):
         super().__setitem__(key, FlagBool(value))
 
     def __getitem__(self, key):
-        from . import PORTAGE_PLAIN_BOOLS
+        from genTree import PORTAGE_PLAIN_BOOLS
 
         if key in PORTAGE_PLAIN_BOOLS:
             if super().__getitem__(key):

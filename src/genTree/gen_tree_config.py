@@ -206,7 +206,7 @@ class GenTreeConfig:
 
     @property
     def emerge_string_args(self):
-        return [f"--{k}={v}" for k, v in self.emerge_strs.items()]
+        return [f"--{k}={v}" for k, v in self.emerge_args.items()]
 
     @property
     def emerge_bool_args(self):

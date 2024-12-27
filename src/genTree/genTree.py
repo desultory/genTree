@@ -7,10 +7,9 @@ from tarfile import ReadError, TarFile
 from zenlib.logging import loggify
 from zenlib.util import colorize
 
+from .filters import WhiteoutError
 from .gen_tree_config import GenTreeConfig
-from .gen_tree_tar_filter import WhiteoutError
-from .mount_mixins import MountMixins
-from .oci_mixins import OCIMixins
+from .types import MountMixins, OCIMixins
 
 
 def get_world_set(config):
@@ -272,7 +271,7 @@ class GenTree(MountMixins, OCIMixins):
         )
 
     def clean_seed_overlay(self):
-        """ Cleans the seed upper and work dirs"""
+        """Cleans the seed upper and work dirs"""
         for root in ["upper", "work"]:
             seed_root = Path(getattr(self.config, f"{root}_seed_root"))
             if seed_root.exists():

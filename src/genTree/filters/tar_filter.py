@@ -1,7 +1,7 @@
 from pathlib import Path
 from tarfile import TarInfo, data_filter
 
-from .gen_tree_filters import PathFilters
+from .filters import PathFilters
 
 
 def get_relative_prefix(path):

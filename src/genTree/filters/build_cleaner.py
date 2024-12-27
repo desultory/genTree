@@ -1,7 +1,7 @@
 from pathlib import Path
 from shutil import rmtree
 
-from .gen_tree_filters import PathFilters
+from .filters import PathFilters
 
 
 class BuildCleaner(PathFilters):

@@ -6,10 +6,8 @@ from typing import Optional, Union
 from zenlib.types import validatedDataclass
 from zenlib.util import colorize, handle_plural, pretty_print
 
-from .build_cleaner import BuildCleaner
-from .gen_tree_tar_filter import GenTreeTarFilter
-from .portage_types import EmergeBools, PortageFlags
-from .whiteout_filter import WhiteoutFilter
+from .filters import BuildCleaner, GenTreeTarFilter, WhiteoutFilter
+from .types import EmergeBools, PortageFlags
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args"]
 ENV_VAR_INHERITED = ["features", "binpkg_format"]
@@ -331,7 +329,9 @@ class GenTreeConfig:
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
         self.logger.info(
-            " ~-~ [%s] Setting portage profile: %s", colorize(self.profile_repo, "yellow"), colorize(self.profile, "blue")
+            " ~-~ [%s] Setting portage profile: %s",
+            colorize(self.profile_repo, "yellow"),
+            colorize(self.profile, "blue"),
         )
 
         profile_sym = Path("/etc/portage/make.profile")

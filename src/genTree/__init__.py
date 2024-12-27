@@ -1,5 +1,5 @@
 from .genTree import GenTree
-from .portage_types import EmergeBools
+from .types import EmergeBools
 
 __all__ = ["EmergeBools", "GenTree"]
 

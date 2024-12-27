@@ -7,7 +7,7 @@ from tarfile import TarFile
 from zenlib.util import get_kwargs, nsexec
 
 from .genTree import GenTree
-from .gen_tree_tar_filter import GenTreeTarFilter
+from .filters import GenTreeTarFilter
 
 
 def main():

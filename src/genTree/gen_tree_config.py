@@ -36,6 +36,7 @@ CHILD_RESTRICTED = [
     "_config_dir",
     "confroot",
     "output_file",
+    "refilter",
 ]
 
 
@@ -89,6 +90,7 @@ class GenTreeConfig:
     # Build cleaner
     clean_filter_options: dict = None  # Options for the clean filter
     tar_filter_options: dict = None  # Options for the tar filter
+    refilter: bool = False  # Refilter the outermost layer
     # whiteout
     whiteouts: list = None  # List of paths to "whiteout" in the lower layer
     opaques: list = None  # List of paths to "opaque" in the lower layer

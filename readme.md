@@ -76,6 +76,8 @@ Several filters are available for cleaning and packing packing layer tarballs:
 * `locales` (false) - Filters locales.
 * `vardbpkg` (false) - Filters `/var/db/pkg`.
 
+> `refilter` can be used to reapply filters to the final tarball.
+
 #### Tar filters
 
 * `whiteouts` (true) - Handles OCI whiteouts. (.wh. files)

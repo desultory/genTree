@@ -205,6 +205,12 @@ class GenTree(MountMixins, OCIMixins):
             colorize(config.output_archive, "green", bright=True),
         )
 
+        def re_add(tar, file, base):
+            if file.isreg():
+                tar.addfile(file, base.extractfile(file))
+            else:
+                tar.addfile(file)
+
         bases = self.deploy_bases(config=config, pretend=True)
         bases.append(config.layer_archive)
         self.logger.info("[%s] Packing bases: %s", colorize(config.name, "blue"), ", ".join(map(str, bases)))
@@ -217,16 +223,14 @@ class GenTree(MountMixins, OCIMixins):
                     for file in base_tar:
                         if f := tar_filter(file):
                             self.logger.log(5, f"[{base}] Adding file: {f.name}")
-                            if f.isreg():  # Add the file contents if it's a regular file
-                                tar.addfile(f, base_tar.extractfile(f))
-                            else:  # Otherwise, add the header only
-                                tar.addfile(f)
+                            re_add(tar, f, base_tar)
                         else:  # Skip filtered files
                             self.logger.log(5, "[%s] Skipping file: %s", config.name, file.name)
         if not config.whiteouts:
             self.logger.info("[%s] No whiteouts found, renaming pre tar to final tar", config.name)
             pre_tar.rename(config.output_archive)
         else:
+            tar_filter = self.config.tar_filter
             self.logger.debug("[%s] Applying whiteouts:\n%s", config.name, config.whiteouts)
             with TarFile.open(config.output_archive, "w") as tar:
                 with TarFile.open(pre_tar, "r") as pre:
@@ -234,12 +238,21 @@ class GenTree(MountMixins, OCIMixins):
                         if file.name in config.whiteouts:
                             self.logger.debug("[%s] Skipping whiteout: %s", config.name, file.name)
                             continue
-                        elif file.isreg():
-                            self.logger.debug("[%s] Adding file: %s", config.name, file.name)
-                            tar.addfile(file, pre.extractfile(file))
-                        else:
-                            tar.addfile(file)
+                        re_add(tar, file, pre)
             pre_tar.unlink()
+
+        if config.refilter:
+            self.logger.info("[%s] Refiltering archive: %s", config.name, config.output_archive)
+            config.output_archive.rename(pre_tar) # Reuse the name
+            tar_filter = self.config.tar_filter
+            with TarFile.open(config.output_archive, "w") as tar:
+                with TarFile.open(pre_tar, "r") as pre:
+                    for file in pre:
+                        if f := tar_filter(file):
+                            self.logger.debug("[%s] Adding file: %s", config.name, f.name)
+                            re_add(tar, f, pre)
+                        else:
+                            self.logger.debug("[%s] Skipping file: %s", config.name, file.name)
 
         self.logger.info(
             "[%s] Created final archive: %s (%s)",

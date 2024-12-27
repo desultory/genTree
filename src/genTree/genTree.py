@@ -213,7 +213,9 @@ class GenTree(MountMixins, OCIMixins):
 
         bases = self.deploy_bases(config=config, pretend=True)
         bases.append(config.layer_archive)
-        self.logger.info("[%s] Packing bases: %s", colorize(config.name, "blue"), ", ".join(map(str, bases)))
+        self.logger.info(
+            "[%s] Packing bases: %s", colorize(config.name, "blue"), colorize(", ".join(map(str, bases)), "cyan")
+        )
         pre_tar = config.output_archive.with_suffix(".pre.tar")
         with TarFile.open(pre_tar, "w") as tar:
             tar_filter = self.config.whiteout_filter
@@ -227,7 +229,7 @@ class GenTree(MountMixins, OCIMixins):
                         else:  # Skip filtered files
                             self.logger.log(5, "[%s] Skipping file: %s", config.name, file.name)
         if not config.whiteouts:
-            self.logger.info("[%s] No whiteouts found, renaming pre tar to final tar", config.name)
+            self.logger.debug("[%s] No whiteouts found, renaming pre tar to final tar", config.name)
             pre_tar.rename(config.output_archive)
         else:
             tar_filter = self.config.tar_filter
@@ -242,8 +244,14 @@ class GenTree(MountMixins, OCIMixins):
             pre_tar.unlink()
 
         if config.refilter:
-            self.logger.info("[%s] Refiltering archive: %s", config.name, config.output_archive)
-            config.output_archive.rename(pre_tar) # Reuse the name
+            size = colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green")
+            self.logger.info(
+                "[%s] Refiltering archive: %s (%s)",
+                colorize(config.name, "blue"),
+                colorize(config.output_archive, "yellow"),
+                size,
+            )
+            config.output_archive.rename(pre_tar)  # Reuse the name
             tar_filter = self.config.tar_filter
             with TarFile.open(config.output_archive, "w") as tar:
                 with TarFile.open(pre_tar, "r") as pre:
@@ -253,6 +261,7 @@ class GenTree(MountMixins, OCIMixins):
                             re_add(tar, f, pre)
                         else:
                             self.logger.debug("[%s] Skipping file: %s", config.name, file.name)
+            pre_tar.unlink()
 
         self.logger.info(
             "[%s] Created final archive: %s (%s)",

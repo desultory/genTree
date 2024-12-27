@@ -66,7 +66,15 @@ FEATURES are inherited by default.
 
 ### filters
 
-Several filters are available for cleaning and packing packing layer tarballs:
+Several filters are available for cleaning and packing packing layer tarballs.
+
+* `refilter` (true) - Reapply all filters to the final tarball.
+
+#### Path filters
+
+Path filters are used to remove files and directories before packing.
+
+These arguments are set under the `clean_filter_options` dict.
 
 * `man` (true) - Filters man pages.
 * `docs` (true) - Filters documentation.
@@ -79,6 +87,10 @@ Several filters are available for cleaning and packing packing layer tarballs:
 > `refilter` can be used to reapply filters to the final tarball.
 
 #### Tar filters
+
+Tar filters are used to filter items added to the tarball.
+
+They are set under the `tar_filter_options` dict; any path filter can be used in addition to:
 
 * `whiteouts` (true) - Handles OCI whiteouts. (.wh. files)
 * `dev` (true) - Filters character and block devices.

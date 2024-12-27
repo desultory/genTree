@@ -171,8 +171,6 @@ class GenTreeConfig:
 
     @property
     def layer_archive(self):
-        if self.output_file:
-            return Path("/builds") / self.output_file
         return self.overlay_root.with_suffix(self.archive_extension)
 
     @property

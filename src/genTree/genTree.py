@@ -146,7 +146,7 @@ class GenTree(MountMixins, OCIMixins):
         """Builds all bases and branches under the current config
         Builds/installs packages in the config build root
         Unmerges packages in the config unmerge list
-        Packs the build tree into the config layer archive if no_pack is False"""
+        Packs the build tree into config.layer_archive."""
         self.build_bases(config=config)
         if config.layer_archive.exists() and not config.rebuild:
             return config.logger.warning(
@@ -167,8 +167,8 @@ class GenTree(MountMixins, OCIMixins):
         self.pack(config=config)
 
     def pack(self, config):
-        """Packs the upper dir of the layer into {config.layer_archive}.
-        The layer archive will be {config.seed}-{config.name} unless  `output_file` is set."""
+        """Packs the upper dir of the layer into config.layer_archive.
+        The file is named config.buildname which is {config.name}-{config.buildname}"""
         config.logger.info(
             " >:- [%s] Packing tree: %s",
             colorize(config.name, "blue", bold=True),
@@ -198,7 +198,8 @@ class GenTree(MountMixins, OCIMixins):
         )
 
     def pack_all(self, config):
-        """Packs all layers in the config into the output file"""
+        """Packs all layers in the config into the output file
+        If refilter is True, refilters the archive after applying whiteouts"""
         config.logger.info(
             " V:V [%s] Packing all layers into: %s",
             colorize(config.name, "blue", bold=True),
@@ -285,7 +286,8 @@ class GenTree(MountMixins, OCIMixins):
                 self.logger.debug("Seed root does not exist: %s", seed_root)
 
     def init_namespace(self):
-        """Initializes the namespace for the current config"""
+        """Initializes the namespace for the current config
+        If clean_seed is True, cleans the seed overlay upper and work dirs"""
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
         if self.config.clean_seed:
             self.clean_seed_overlay()
@@ -301,7 +303,7 @@ class GenTree(MountMixins, OCIMixins):
 
     def build_tree(self):
         """Builds the tree in a namespaced chroot environment.
-        Packs the resulting tree into {self.output_file} or {self.config.layer_archive}."""
+        Packs the resulting tree into {self.config.output_file} or {self.config.output_archive}."""
         self.init_namespace()
         self.logger.info(" +++ Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
         self.build(config=self.config)

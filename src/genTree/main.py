@@ -4,7 +4,8 @@ from pathlib import Path
 from shutil import copytree
 from tarfile import TarFile
 
-from zenlib.util import get_kwargs, nsexec
+from zenlib.util import get_kwargs
+from zenlib.namespace import nsexec
 
 from .genTree import GenTree
 from .filters import GenTreeTarFilter

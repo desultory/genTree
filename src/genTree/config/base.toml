@@ -1,6 +1,8 @@
 # Creates the base layer, adds symlinks for merged-usr
-use = "build"
 packages = ["baselayout"]
 
 [emerge_bools]
 oneshot = true
+
+[env]
+use = "build"

@@ -1,10 +1,12 @@
 from .genTree import GenTree
-from .types import EmergeBools
+from .types import EmergeBools, PortageFlags
 
 __all__ = ["EmergeBools", "GenTree"]
 
 # Some bools don't support y/n, just --bool
 PORTAGE_PLAIN_BOOLS = ["nodeps", "oneshot"]
+
+DEFAULT_BINPKG_FORMAT = "gpkg"
 
 DEFAULT_EMERGE_BOOLS = EmergeBools(
     {
@@ -19,7 +21,7 @@ DEFAULT_EMERGE_ARGS = {
     "jobs": 8,  # Number of jobs to run in parallel
 }
 
-DEFAULT_FEATURES = [
+DEFAULT_FEATURES = PortageFlags([
     "buildpkg",  # Build binary packages
     "binpkg-multi-instance",  # Allow multiple versions of binary packages
     "parallel-fetch",  # Fetch multiple files at once
@@ -27,7 +29,7 @@ DEFAULT_FEATURES = [
     "-ebuild-locks",
     "-merge-wait",
     "-merge-sync",
-]
+])
 
 DEFAULT_TAR_FILTER_OPTIONS = {
     "whiteout": True,

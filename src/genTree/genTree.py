@@ -111,6 +111,7 @@ class GenTree(MountMixins, OCIMixins):
 
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
+        config = config or self.config
         self.logger.info(
             " [E] [%s] emerge %s", colorize(config.name, "green", bright=True, bold=True), " ".join(map(str, args))
         )
@@ -305,6 +306,11 @@ class GenTree(MountMixins, OCIMixins):
         """Builds the tree in a namespaced chroot environment.
         Packs the resulting tree into {self.config.output_file} or {self.config.output_archive}."""
         self.init_namespace()
+        if self.config.seed_update:
+            self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
+            self.run_emerge(self.config.seed_update_args.split())
+        else:
+            self.logger.debug("Skipping seed update")
         self.logger.info(" +++ Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
         self.build(config=self.config)
         self.pack_all(config=self.config)  # Pack the entire tree

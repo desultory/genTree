@@ -1,3 +1,5 @@
+from copy import deepcopy
+from importlib import import_module
 from os import environ
 from pathlib import Path
 from tomllib import load
@@ -10,11 +12,11 @@ from .filters import BuildCleaner, GenTreeTarFilter, WhiteoutFilter
 from .types import EmergeBools, PortageFlags
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args"]
-ENV_VAR_INHERITED = ["features", "binpkg_format"]
-ENV_VARS = [*ENV_VAR_INHERITED, "use"]
+CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
+ENV_VAR_INHERITED = [*CPU_FLAG_VARS, "binpkg_format"]
+ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 
 INHERITED_CONFIG = [
-    *ENV_VAR_INHERITED,
     "seed",
     "clean_build",
     "rebuild",
@@ -76,13 +78,13 @@ class GenTreeConfig:
     # Archive configuration
     archive_extension: str = ".tar"
     output_file: Path = None  # Override the output file for the final archive
-    # Other environment variables
-    use: PortageFlags = None
-    features: PortageFlags = None
-    binpkg_format: str = "gpkg"
+    # Environment variables
+    env: dict = None  # Environment variables to set in the chroot
     # portage args
     emerge_args: dict = None
     emerge_bools: EmergeBools = None
+    seed_update: bool = True  # Update the seed before building
+    seed_update_args: str = "--update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world"
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -242,8 +244,6 @@ class GenTreeConfig:
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
-        from . import DEFAULT_FEATURES
-
         config = Path(config_file)
         if not config.exists():
             raise FileNotFoundError(f"Config file does not exist: {config_file}")
@@ -266,12 +266,11 @@ class GenTreeConfig:
         self.load_defaults(DEF_ARGS)  # load defaults from the package __init__, then config
 
         for key, value in self.config.items():
-            if key in ["name", "emerge_bools", "logger", "use", "features", "bases", "whiteouts", "opaques", *DEF_ARGS]:
+            if key in ["name", "emerge_bools", "logger", "env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
                 continue  # Don't set these attributes directly
             setattr(self, key, value)
 
-        self.features = PortageFlags(self.config.get("features", DEFAULT_FEATURES))
-        self.load_use()
+        self.load_env()
         self.load_emerge_bools()
 
         self.bases = []
@@ -283,15 +282,11 @@ class GenTreeConfig:
 
     @handle_plural
     def load_defaults(self, argname):
-        from importlib import import_module
-
-        defaults = getattr(import_module("genTree"), f"default_{argname}".upper(), {})
-        setattr(self, argname, defaults.copy() | self.config.get(argname, {}))
+        defaults = deepcopy(getattr(import_module("genTree"), f"default_{argname}".upper(), {}))
+        setattr(self, argname, defaults | self.config.get(argname, {}))
 
     def load_emerge_bools(self):
         """Loads emerge boolean flags from the config"""
-        from copy import deepcopy
-
         from . import DEFAULT_EMERGE_BOOLS
 
         self.emerge_bools = deepcopy(DEFAULT_EMERGE_BOOLS)
@@ -299,16 +294,31 @@ class GenTreeConfig:
             self.emerge_bools.update(emerge_bools)
             self.logger.debug("Loaded emerge boolean flags: %s", self.emerge_bools)
 
-    def load_use(self):
-        """Loads USE flags from the config, inheriting them from the parent if inherit_use is True"""
-        if inherit_use := self.config.get("inherit_use"):
-            self.inherit_use = inherit_use
-        parent_use = getattr(self.parent, "use") if self.inherit_use else set()
-        config_use = PortageFlags(self.config.get("use", ""))
-        if self.inherit_use:
-            self.use = parent_use | config_use
+    def load_env(self):
+        """Loads environment variables from the config.
+        Features are always inherited.
+        USE flags are inherited if inherit_use is set"""
+
+        use = PortageFlags(self.config.get("use", ""))
+        if self.config.get("inherit_use", False):
+            use |= self.parent.env["use"]
+        self.env = {"use": use}
+        if parent_features := getattr(self.parent, "env", {}).get("features", set()):
+            self.env["features"] = parent_features | PortageFlags(self.config.get("features", ""))
         else:
-            self.use = config_use
+            from . import DEFAULT_FEATURES
+
+            self.env["features"] = DEFAULT_FEATURES | PortageFlags(self.config.get("features", ""))
+
+        for env in ENV_VAR_INHERITED:
+            parent_value = self.parent.env.get(env) if self.parent else ""
+            if env_value := self.config.get(env, parent_value):
+                self.env[env] = env_value
+            elif default := getattr(import_module("genTree"), f"default_{env}".upper(), ""):
+                self.logger.debug("Using default value for %s: %s", env, default)
+                self.env[env] = default
+            else:
+                self.env.pop(env, None)
 
     @handle_plural
     def check_dir(self, dirname, create=True):
@@ -343,11 +353,13 @@ class GenTreeConfig:
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
+        self.logger.debug("Env settings: %s", self.env)
         for env in ENV_VARS:
-            env_value = getattr(self, env)
+            env_value = self.env.get(env)
             env = env.upper()
             if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
-                self.logger.debug("Skipping unset environment variable: %s", env)
+                self.logger.debug("Unsetting environment variable: %s", env)
+                environ.pop(env, None)
                 continue
             self.logger.debug("Setting environment variable: %s=%s", env, env_value)
             environ[env] = str(env_value)

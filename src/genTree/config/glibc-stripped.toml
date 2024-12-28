@@ -2,4 +2,3 @@ bases = ["glibc"]
 
 [clean_filter_options]
 locales = true
-charmaps = true

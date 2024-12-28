@@ -1,7 +1,6 @@
 bases = ["base"]
 packages = ["sys-libs/glibc"]
 
-
 [emerge_bools]
 nodeps = true
 oneshot = true

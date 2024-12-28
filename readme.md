@@ -35,9 +35,11 @@ seed = "stage3-openrc"
 
 bases = ["tini", "gcc"]
 
-use = "nginx"
 packages = ["www-servers/nginx"]
 unmerge = ["sys-devel/gcc"]
+
+[env]
+use = "nginx"
 
 [clean_filter_options]
 charmaps = true  # Delete charmaps before packing
@@ -124,15 +126,29 @@ with_bdeps = false
 
 > Operators which cannot be set =n should be defined in PORTAGE_PLAIN_BOOLS
 
-### Portage Environment Variables
+### Environment Variables
 
-Portage environment variables can be set in the configuration file:
+Environment variables can be set using the `env` dict.
 
-* `use` (set/list) - USE flags to set.
-* `features` (set/list) - FEATURES to set.
-* `binpkg_format` (gpkg) - The binary package format to use.
+The following variables can be used as sets or strings:
+
+* `use` (set) - USE flags to set.
+* `features` (set) - FEATURES to set.
 
 > The `use` and `features` variables are sets which can interpret adding and removing flags using `+` and `-` prefixes.
+
+The following variable is set by default:
+
+* `binpkg_format` (gpkg) - The binary package format to use.
+
+ex:
+```
+[env]
+use = "-dracut ugrd"  # The same as ["-dracut", "ugrd"]
+features = ["-test", "test"]  # Remove test and add test (NOOP)
+foo_arg = "bar"  # Set the variable foo_arg to bar
+
+```
 
 ## Mounts
 

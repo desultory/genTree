@@ -91,8 +91,8 @@ class GenTreeConfig:
     tar_filter_options: dict = None  # Options for the tar filter
     refilter: bool = True  # Refilter the outermost layer
     # whiteout
-    whiteouts: list = None  # List of paths to "whiteout" in the lower layer
-    opaques: list = None  # List of paths to "opaque" in the lower layer
+    whiteouts: set = None  # List of paths to "whiteout" in the lower layer
+    opaques: set = None  # List of paths to "opaque" in the lower layer
 
     def on_conf_root(self, path):
         return Path(self.conf_root).expanduser().resolve() / path
@@ -278,8 +278,8 @@ class GenTreeConfig:
         for base in self.config.get("bases", []):
             self.add_base(base)
 
-        self.whiteouts = self.config.get("whiteouts", [])
-        self.opaques = self.config.get("opaques", [])
+        self.whiteouts = self.config.get("whiteouts", set())
+        self.opaques = self.config.get("opaques", set())
 
     @handle_plural
     def load_defaults(self, argname):

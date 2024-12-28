@@ -7,8 +7,8 @@ from zenlib.logging import loggify
 @loggify
 class WhiteoutFilter:
     def __init__(self, *args, **kwargs):
-        self.whiteouts = kwargs.pop("whiteouts", [])
-        self.opaques = kwargs.pop("opaques", [])
+        self.whiteouts = kwargs.pop("whiteouts", set())
+        self.opaques = kwargs.pop("opaques", set())
         super().__init__(*args, **kwargs)
 
     def __call__(self, member, *args, **kwargs):
@@ -26,7 +26,7 @@ class WhiteoutFilter:
         member_path = Path(member.name)
         if member_path.name == ".wh..wh..opq" and member.size == 0 and member.isreg():
             self.logger.debug("Detected opaque: %s", member.name)
-            self.opaques.append(str(member_path.parent))
+            self.opaques.add(str(member_path.parent))
             return None
         return member
 
@@ -38,6 +38,6 @@ class WhiteoutFilter:
         member_path = Path(member.name)
         if member_path.name.startswith(".wh.") and member.size == 0 and member.isreg():
             self.logger.debug("Detected whiteout: %s", member.name)
-            self.whiteouts.append(str(member_path.with_name(member_path.name[4:])))
+            self.whiteouts.add(str(member_path.with_name(member_path.name[4:])))
             return None
         return member

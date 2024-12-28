@@ -65,44 +65,38 @@ class PathFilters(FilterClass):
     FILTERS = ["man", "docs", "include", "locales", "charmaps", "completions", "vardbpkg"]
     NAME_FILTERS = FILTERS
 
-    def f_charmaps(self, name) -> bool:
-        """Filters charmaps"""
-        if name.startswith("usr/share/i18n/charmaps/"):
+    def check_path(self, name, path) -> bool:
+        """Checks if a path is in a given directory"""
+        if name.startswith(path):
+            return False
+        if f"{name}/" == path:
             return False
         return True
+
+    def f_charmaps(self, name) -> bool:
+        """Filters charmaps"""
+        return self.check_path(name, "usr/share/i18n/charmaps/")
 
     def f_man(self, name) -> bool:
         """Filters manual pages"""
-        if name.startswith("usr/share/man/"):
-            return False
-        return True
+        return self.check_path(name, "usr/share/man/")
 
     def f_docs(self, name) -> bool:
         """Filters documentation"""
-        if any(name.startswith(d) for d in self.DOC_DIRS):
-            return False
-        return True
+        return all(self.check_path(name, d) for d in self.DOC_DIRS)
 
     def f_include(self, name) -> bool:
         """Filters include files"""
-        if name.startswith("usr/include/"):
-            return False
-        return True
+        return self.check_path(name, "usr/include/")
 
     def f_locales(self, name) -> bool:
         """Filters locales"""
-        if any(name.startswith(d) for d in self.LOCALE_DIRS):
-            return False
-        return True
+        return all(self.check_path(name, d) for d in self.LOCALE_DIRS)
 
     def f_completions(self, name) -> bool:
         """Filters shell completions"""
-        if name.startswith("usr/share/bash-completion/"):
-            return False
-        return True
+        return self.check_path(name, "usr/share/bash-completion/")
 
     def f_vardbpkg(self, name) -> bool:
         """Filters /var/db/pkg"""
-        if name.startswith("var/db/pkg/"):
-            return False
-        return True
+        return self.check_path(name, "var/db/pkg/")

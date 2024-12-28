@@ -31,5 +31,7 @@ class OCIMixins:
                 else:
                     self.logger.debug("Whiting out file: %s", whiteout_path)
                     whiteout_path.unlink()
+            elif str(whiteout_path.parent.relative_to(lower_root)) in whiteouts:
+                self.logger.debug("Parent of whiteout already whiteout: %s", whiteout_path.parent)
             else:
                 self.logger.warning("Whiteout target not found: %s", colorize(whiteout_path, "red"))

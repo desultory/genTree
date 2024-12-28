@@ -112,21 +112,27 @@ class GenTree(MountMixins, OCIMixins):
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
         config = config or self.config
+        config.set_portage_profile()  # Ensure the profile is set
+        config.set_portage_env()  # Ensure the env is set
         self.logger.info(
             " [E] [%s] emerge %s", colorize(config.name, "green", bright=True, bold=True), " ".join(map(str, args))
         )
-        ret = run(["emerge", *args], capture_output=True)
+        ret = run(["emerge", *args])
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
-            raise RuntimeError(f"Failed to run: {args}\n{ret.stdout.decode()}\n{ret.stderr.decode()}")
+            raise RuntimeError(f"Failed to run: emerge {args}")
 
         return ret
 
     def perform_emerge(self, config):
         """Performs the emerge command for the current config"""
         if not getattr(config, "packages", None):
-            config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
-            return
+            return config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
+
+        packages = config.packages or []
+        config.logger.info(
+            " [E] [%s] Emerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "green")
+        )
         self.run_emerge(config.emerge_flags, config=config)
 
         if config.depclean:
@@ -160,8 +166,6 @@ class GenTree(MountMixins, OCIMixins):
         self.deploy_bases(config=config)
         self.mount_root_overlay(config=config)
         self.mount_config_overlay(config=config)
-        config.set_portage_profile()
-        config.set_portage_env()
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
         config.cleaner.clean(config.overlay_root)

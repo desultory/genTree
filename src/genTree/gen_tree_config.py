@@ -299,7 +299,7 @@ class GenTreeConfig:
         Features are always inherited.
         USE flags are inherited if inherit_use is set"""
 
-        use = PortageFlags(self.config.get("use", ""))
+        use = PortageFlags(self.config.get("env", {}).get("use", ""))
         if self.config.get("inherit_use", False):
             use |= self.parent.env["use"]
         self.env = {"use": use}
@@ -336,37 +336,39 @@ class GenTreeConfig:
 
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
+        profile_sym = Path("/etc/portage/make.profile")
+        profile_target = Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}")
+        if profile_sym.is_symlink() and profile_sym.resolve() == profile_target:
+            return self.logger.debug("Portage profile already set: %s -> %s", profile_sym, profile_target)
+
         self.logger.info(
             " ~-~ [%s] Setting portage profile: %s",
             colorize(self.profile_repo, "yellow"),
             colorize(self.profile, "blue"),
         )
 
-        profile_sym = Path("/etc/portage/make.profile")
         if profile_sym.exists(follow_symlinks=False):
             profile_sym.unlink()
 
-        profile_sym.symlink_to(
-            Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}"), target_is_directory=True
-        )
+        profile_sym.symlink_to(profile_target, target_is_directory=True)
         self.logger.debug("Set portage profile symlink: %s -> %s", profile_sym, profile_sym.resolve())
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
-        self.logger.debug("Env settings: %s", self.env)
         for env in ENV_VARS:
-            env_value = self.env.get(env)
+            env_value = getattr(self, "env", {}).get(env)
             env = env.upper()
             if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
-                self.logger.debug("Unsetting environment variable: %s", env)
-                environ.pop(env, None)
+                self.logger.warning("Environment variable %s is not set", env)
+                if env in environ:
+                    self.logger.debug("Unsetting environment variable: %s", env)
+                    environ.pop(env)
                 continue
             self.logger.debug("Setting environment variable: %s=%s", env, env_value)
             environ[env] = str(env_value)
 
-        if use_flags := self.use:
-            self.logger.info(" .~. [%s] Setting USE flags: %s", colorize(self.name, "yellow"), use_flags)
-            environ["USE"] = str(use_flags)
+        if use := self.env.get("use"):
+            self.logger.info(" ~+~ Environment USE flags: %s", colorize(use, "yellow"))
 
     def __str__(self):
         out_dict = {attr: getattr(self, attr) for attr in self.__dataclass_fields__}

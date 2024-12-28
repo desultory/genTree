@@ -1,9 +1,12 @@
 seed = "stage3-openrc"
 bases = ["tini", "gcc", "ca-certificates"]
 
-use = "nginx"
 packages = ["www-servers/nginx"]
 unmerge = ["sys-devel/gcc"]
 
+[env]
+use = "nginx"
+
 [tar_filter_options]
 vardbpkg = true
+

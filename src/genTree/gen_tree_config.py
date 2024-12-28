@@ -359,7 +359,6 @@ class GenTreeConfig:
             env_value = getattr(self, "env", {}).get(env)
             env = env.upper()
             if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
-                self.logger.warning("Environment variable %s is not set", env)
                 if env in environ:
                     self.logger.debug("Unsetting environment variable: %s", env)
                     environ.pop(env)

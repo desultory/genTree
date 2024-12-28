@@ -84,7 +84,7 @@ class GenTreeConfig:
     emerge_args: dict = None
     emerge_bools: EmergeBools = None
     seed_update: bool = True  # Update the seed before building
-    seed_update_args: str = "--update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world"
+    seed_update_args: str = "--jobs 8 --update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world"
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -312,7 +312,7 @@ class GenTreeConfig:
 
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
-            if env_value := self.config.get(env, parent_value):
+            if env_value := self.config.get("env", {}).get(env, parent_value):
                 self.env[env] = env_value
             elif default := getattr(import_module("genTree"), f"default_{env}".upper(), ""):
                 self.logger.debug("Using default value for %s: %s", env, default)

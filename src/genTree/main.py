@@ -72,7 +72,7 @@ def import_seed():
     else:
         with TarFile.open(seed) as tar:
             logger.info(f"Extracting seed archive: {seed} -> {seed_dir}")
-            tar.extractall(seed_dir, filter=GenTreeTarFilter(logger=logger, filter_dev=True))
+            tar.extractall(seed_dir, filter=GenTreeTarFilter(logger=logger, dev=True))
 
     logger.info(f"[{name}] Seed imported: {seed_dir}")
 

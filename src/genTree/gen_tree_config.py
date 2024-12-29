@@ -73,7 +73,7 @@ class GenTreeConfig:
     _pkgdir: Path = None  # Directory where packages are stored
     config_overlay: str = None  # The config overlay to use, a directory in the config dir
     # Profiles can be set in any config and are applied before the emerge
-    profile: str = "default/linux/amd64/23.0"
+    profile: str = None  # The portage profile to use
     profile_repo: str = "gentoo"
     # Archive configuration
     archive_extension: str = ".tar"
@@ -341,6 +341,9 @@ class GenTreeConfig:
 
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
+        if not self.profile:
+            return self.logger.debug("No portage profile set")
+
         profile_sym = Path("/etc/portage/make.profile")
         profile_target = Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}")
         if profile_sym.is_symlink() and profile_sym.resolve() == profile_target:

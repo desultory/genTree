@@ -250,6 +250,9 @@ class GenTree(MountMixins, OCIMixins):
                         if file.name in config.whiteouts:
                             self.logger.debug("[%s] Skipping whiteout: %s", config.name, file.name)
                             continue
+                        elif any(file.name.startswith(f"{whiteout}/") for whiteout in config.whiteouts):
+                            self.logger.debug("[%s] Skipping prefixed whiteout: %s", config.name, file.name)
+                            continue
                         re_add(tar, file, pre)
             pre_tar.unlink()
 

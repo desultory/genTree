@@ -145,7 +145,7 @@ ex:
 ```
 [env]
 use = "-dracut ugrd"  # The same as ["-dracut", "ugrd"]
-features = ["-test", "test"]  # Remove test and add test (NOOP)
+features = ["test", "-test"]  # Remove test and add test (NOOP)
 foo_arg = "bar"  # Set the variable foo_arg to bar
 
 ```

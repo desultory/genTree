@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from aiohttp.web import Application, Response
-from asyncio import Lock, sleep
+from asyncio import Lock, sleep, to_thread
 from zenlib.logging import loggify
 from zenlib.util import get_kwargs
 from zenlib.namespace import nsexec
@@ -24,22 +24,22 @@ class GenTreeWeb:
         self.genTree = GenTree(name="GenTreeWeb", seed=seed, logger=self.logger)
         self.app = Application(logger=self.logger)
         self.app.on_startup.append(self.app_tasks)
-        self.app.router.add_get("/pkg", self.get_package)
+        self.app.router.add_get("/pkg", self.add_package)
+        self.app.router.add_static("/", path=self.genTree.config.pkgdir)
 
-    async def add_package(self, package_name):
+    async def enqueue_package(self, package_name):
         async with self.queue_lock:
             if package_name in self.build_queue:
                 raise PackageInQueue(f"Package {package_name} is already in the queue.")
             self.build_queue.append(package_name)
 
-
-    async def get_package(self, request):
+    async def add_package(self, request):
         package_name = request.query.get("pkg", None)
         if package_name is None:
             return Response(text="No package name provided", status=400)
 
         try:
-            await self.add_package(package_name)
+            await self.enqueue_package(package_name)
         except PackageInQueue as e:
             return Response(text=str(e), status=400)
 
@@ -57,8 +57,9 @@ class GenTreeWeb:
                     package_name = None
 
             if package_name is not None:
-                ret = nsexec(self.genTree.build_package, package_name)
-                print(ret)
+                ret = await to_thread(nsexec, self.genTree.build_package, package_name)
+                if ret is not None:
+                    self.logger.warning("Build process returned: %s", ret)
             else:
                 await sleep(1)
 

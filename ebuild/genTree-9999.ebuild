@@ -17,4 +17,5 @@ SLOT="0"
 
 RDEPEND="
 	>=dev-python/zenlib-9999[${PYTHON_USEDEP}]
+        dev-python/aiohttp[${PYTHON_USEDEP}]
 "

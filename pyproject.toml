@@ -19,7 +19,7 @@ classifiers = [
 
 dependencies = [
     "zenlib >= 3.0.0",
-    "portage >= 3.0.52"
+    "aiohttp >= 3.10.0",
 ]
 
 [project.scripts]

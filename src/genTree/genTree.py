@@ -40,7 +40,7 @@ def preserve_world(func):
 
 @loggify
 class GenTree(MountMixins, OCIMixins):
-    def __init__(self, config_file="config.toml", *args, **kwargs):
+    def __init__(self, config_file=None, *args, **kwargs):
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
 
     def prepare_build(self, config):
@@ -299,6 +299,7 @@ class GenTree(MountMixins, OCIMixins):
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
         if self.config.clean_seed:
             self.clean_seed_overlay()
+
         self.mount_seed_overlay()
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
@@ -321,3 +322,10 @@ class GenTree(MountMixins, OCIMixins):
         self.logger.info(" +++ Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
         self.build(config=self.config)
         self.pack_all(config=self.config)  # Pack the entire tree
+
+
+    def build_package(self, package):
+        """Builds a single package based on the current config"""
+        self.init_namespace()
+        self.logger.info(" +++ Building package: %s", colorize(package, "green", bold=True))
+        self.run_emerge([package])

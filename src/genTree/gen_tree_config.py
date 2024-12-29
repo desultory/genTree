@@ -219,7 +219,12 @@ class GenTreeConfig:
         self.bases.append(GenTreeConfig(logger=self.logger, config_file=base, parent=self))
 
     def __post_init__(self, *args, **kwargs):
-        self.load_config(self.config_file or kwargs.get("config_file"))
+        config_file = self.config_file or kwargs.get("config_file")
+        if config_file:
+            self.load_config(config_file)
+        else:
+            self.config = {}
+            self.load_standard_config()
         self.process_kwargs(kwargs)
 
     def inherit_parent(self):
@@ -242,6 +247,12 @@ class GenTreeConfig:
             self.logger.debug("Setting attribute from kwargs: %s=%s", key, value)
             setattr(self, key, value)
 
+    def load_standard_config(self):
+        self.load_defaults(DEF_ARGS)  # load defaults from the package __init__
+        self.load_env()
+        self.load_emerge_bools()
+
+
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
         config = Path(config_file)
@@ -263,15 +274,11 @@ class GenTreeConfig:
         elif "seed" not in self.config:
             raise ValueError("Seed must be set in the top level config")
 
-        self.load_defaults(DEF_ARGS)  # load defaults from the package __init__, then config
-
+        self.load_standard_config()
         for key, value in self.config.items():
             if key in ["name", "emerge_bools", "logger", "env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
                 continue  # Don't set these attributes directly
             setattr(self, key, value)
-
-        self.load_env()
-        self.load_emerge_bools()
 
         self.bases = []
         for base in self.config.get("bases", []):
@@ -317,8 +324,6 @@ class GenTreeConfig:
             elif default := getattr(import_module("genTree"), f"default_{env}".upper(), ""):
                 self.logger.debug("Using default value for %s: %s", env, default)
                 self.env[env] = default
-            else:
-                self.env.pop(env, None)
 
     @handle_plural
     def check_dir(self, dirname, create=True):

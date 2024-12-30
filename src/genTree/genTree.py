@@ -328,4 +328,4 @@ class GenTree(MountMixins, OCIMixins):
         """Builds a single package based on the current config"""
         self.init_namespace()
         self.logger.info(" +++ Building package: %s", colorize(package, "green", bold=True))
-        self.run_emerge([package])
+        self.run_emerge([package, "--oneshot", "--noreplace", "--usepkg=y", "--jobs=8"])

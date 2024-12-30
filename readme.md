@@ -2,6 +2,8 @@
 
 genTree generates a filesystem tree in a namespace using portage.
 
+genTree-server serves the package cache and can be used to queue new builds using genTree.
+
 ## Usage
 
 `genTree-import-seed <system root> <seed name> [conf_root]`

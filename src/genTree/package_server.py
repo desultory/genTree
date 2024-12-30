@@ -23,7 +23,7 @@ class GenTreeWeb:
         self.listen_port = listen_port
         self.build_queue = []  # Don't tell anyone the queue is a list
         self.queue_lock = Lock()
-        self.genTree = GenTree(name="GenTreeWeb", seed=seed, logger=self.logger)
+        self.genTree = GenTree(name="GenTreeWeb", seed=seed, clean_seed=True, logger=self.logger)
         self.app = Application(logger=self.logger)
         self.app.on_startup.append(self.app_tasks)
         self.app.router.add_get("/pkg", self.add_package)

@@ -18,6 +18,16 @@ ex. `genTree-import-seed stage3.tar.xz stage3-openrc .`
 
 ex. `genTree nginx.toml`
 
+## Server usage
+
+genTree can serve binpkgs using `aiohttp` with genTree-server.
+
+`genTree-server <seed name> [--debug, -d] [-a --address <address>] [-p --port <port>]`
+
+ex. `genTree-server stage3-openrc -a 0.0.0.0`
+
+Builds can be added to a queue using `/pkg?pkg=<pkg>` and viewed using `/queue`. 
+
 ## Configuration
 
 Example configuration file:
@@ -145,7 +155,7 @@ ex:
 ```
 [env]
 use = "-dracut ugrd"  # The same as ["-dracut", "ugrd"]
-features = ["test", "-test"]  # Remove test and add test (NOOP)
+features = ["test", "-test"]  # Add and remove test (NOOP)
 foo_arg = "bar"  # Set the variable foo_arg to bar
 
 ```
@@ -162,7 +172,7 @@ A seed must be defined in the top level config. Seeds are used as the lower laye
 
 This layer will persist between builds, and will not be cleaned unless `clean_seed` is set to true.
 
-When enabled, `clean_seed` recursivedly removes the uppper and work directories of the seed overlay.
+When enabled, `clean_seed` recursively removes the upper and work directories of the seed overlay.
 
 ### Config overlay
 

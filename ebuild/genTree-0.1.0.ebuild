@@ -15,7 +15,9 @@ EGIT_REPO_URI="https://github.com/desultory/${PN}"
 LICENSE="GPL-2"
 SLOT="0"
 
+KEYWORDS="~amd64 ~arm64"
+
 RDEPEND="
-	>=dev-python/zenlib-9999[${PYTHON_USEDEP}]
+	>=dev-python/zenlib-3.1.2[${PYTHON_USEDEP}]
     dev-python/aiohttp[${PYTHON_USEDEP}]
 "

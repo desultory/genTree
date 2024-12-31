@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "genTree"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
   { name="Desultory", email="dev@pyl.onl" },
 ]
@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "zenlib >= 3.0.0",
+    "zenlib >= 3.1.2",
     "aiohttp >= 3.10.0",
 ]
 

@@ -63,6 +63,7 @@ locales = true # Filter locales when packing
 * `packages` (list) - The packages to emerge.
 * `unmerge` (list) - The packages to unmerge.
 * `deplean` (false) - Run depclean --with-bdeps=n after emerging.
+* `rebuild` (true) - Force a rebuild of the layer.
 
 ### Bases
 
@@ -72,11 +73,17 @@ Bases layer contents are extracted to the lower_dir of the build layer's overlay
 
 > Builtin bases such as `tini`, `glibc`, and `base` can be specified without a suffix to be used
 
+The path to a base file can be specified for custom bases.
+
 #### Inheritance
 
-USE flags will not be inherited from the parent unless `inherit_use` is set to true.
 
-FEATURES are inherited by default.
+* `inherit_use` (true) - Inherit USE flags from the parent.
+* `inherit_features` (true) - Inherit FEATURES from the parent.
+* `inherit_env` (true) - Inherit misc environment variables from the parent.
+* `inherit_config` (false) - Inherit the configuration root from the parent.
+
+> `inherit_env` controls inheritance from `DEF_ARGS` (filter options and emerge args).
 
 ### filters
 
@@ -174,7 +181,8 @@ A seed must be defined in the top level config. Seeds are used as the lower laye
 
 This layer will persist between builds, and will not be cleaned unless `clean_seed` is set to true.
 
-When enabled, `clean_seed` recursively removes the upper and work directories of the seed overlay.
+* `clean_seed` (false) - Clean the seed overlay upper dir before building.
+* `ephemeral_seed` (false) - Mount the seed overlay on a tmpfs.
 
 ### Config overlay
 
@@ -191,6 +199,4 @@ The build are performed in overlays which are mounted over `/builds` in the name
 
 The upper_dir is used to build layers between stages, and the mount point is used for the outermost layer.
 
-The build upper and work directories are cleaned before builds unless `clean_build` is set to false.
-
-
+* `clean_build` (true) - Clean the build overlay before building.

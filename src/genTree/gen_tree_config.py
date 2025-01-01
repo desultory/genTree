@@ -74,7 +74,7 @@ class GenTreeConfig:
     name: str = None  # The name of the config layer
     seed: str = None  # Seed name, can only and must be set in the top level config
     config_file: Path = None  # Path to the config file
-    config: dict = None  # The internel config dictionary
+    config: dict = None  # The internal config dictionary
     parent: Optional["GenTreeConfig"] = None  # Parent config object
     bases: list = None  # List of base layer configs, set in parent when a child is added
     inherit_env: bool = True  # Inherit default environment variables from the parent

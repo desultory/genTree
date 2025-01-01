@@ -10,8 +10,25 @@ from zenlib.util import colorize, handle_plural, pretty_print
 from .filters import BuildCleaner, GenTreeTarFilter, WhiteoutFilter
 from .types import EmergeBools, PortageFlags
 
-with open(Path(__file__).parent / "default.toml", "rb") as f:
-    DEFAULT_CONFIG = load(f)
+# Check load config from the package root/default.toml,
+# Then check /etc/genTree/gentree.toml and ~/.config/genTree/gentree.toml
+
+DEFAULT_CONFIG = {}
+for config in [
+    Path(__file__).parent / "default.toml",
+    Path("/etc/genTree/config.toml"),
+    Path("~/.config/genTree/config.toml").expanduser(),
+]:
+    if config.exists():
+        with open(config, "rb") as f:
+            config = load(f)
+            for key, value in config.items():
+                if key in DEFAULT_CONFIG and isinstance(value, dict):
+                    DEFAULT_CONFIG[key] |= value
+                elif key in DEFAULT_CONFIG and isinstance(value, list):
+                    DEFAULT_CONFIG[key].extend(value)
+                else:
+                    DEFAULT_CONFIG[key] = value
 
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
@@ -60,6 +77,8 @@ class GenTreeConfig:
     config: dict = None  # The internel config dictionary
     parent: Optional["GenTreeConfig"] = None  # Parent config object
     bases: list = None  # List of base layer configs, set in parent when a child is added
+    inherit_env: bool = True  # Inherit default environment variables from the parent
+    inherit_features: bool = True  # Inherit default features from the parent
     inherit_use: bool = False  # Inherit USE flags from the parent
     inherit_config: bool = False  # Inherit the config overlay from the parent
     # The following directories can only be set in the top level config
@@ -231,13 +250,13 @@ class GenTreeConfig:
         self.bases.append(GenTreeConfig(logger=self.logger, config_file=base, parent=self))
 
     def __post_init__(self, *args, **kwargs):
+        self.process_kwargs(kwargs)
         config_file = self.config_file or kwargs.get("config_file")
         if config_file:
             self.load_config(config_file)
         else:
             self.config = {}
             self.load_standard_config()
-        self.process_kwargs(kwargs)
 
     def inherit_parent(self):
         """Inherits config from the parent object"""
@@ -308,20 +327,20 @@ class GenTreeConfig:
         USE flags are inherited if inherit_use is set"""
 
         use = PortageFlags(self.config.get("env", {}).get("use", ""))
-        if self.config.get("inherit_use", False):
+        if self.inherit_use:
             use |= self.parent.env["use"]
         self.env = {"use": use}
         conf_features = self.config.get("env", {}).get("features", "")
         if parent_features := getattr(self.parent, "env", {}).get("features", set()):
             self.env["features"] = parent_features | PortageFlags(conf_features)
-        else:
-            self.env["features"] = set(DEFAULT_CONFIG["env"]["features"]) | PortageFlags(conf_features)
+        elif self.inherit_features:
+            self.env["features"] = PortageFlags(DEFAULT_CONFIG["env"]["features"]) | PortageFlags(conf_features)
 
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
             if env_value := self.config.get("env", {}).get(env, parent_value):
                 self.env[env] = env_value
-            elif default := DEFAULT_CONFIG["env"].get(env, ""):
+            elif (default := DEFAULT_CONFIG["env"].get(env, "")) and self.inherit_env:
                 self.logger.debug("Using default value for %s: %s", env, default)
                 self.env[env] = default
 

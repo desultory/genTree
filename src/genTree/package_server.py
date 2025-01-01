@@ -90,9 +90,15 @@ def main():
             "help": "Use a tmpfs mount for the seed upper dir",
             "action": "store_true",
         },
+        {"flags": ["--no-config"], "help": "Don't use system config", "action": "store_true"},
     ]
 
     kwargs = get_kwargs(package=__package__, description="Builds packages on demand", arguments=arguments, strict=True)
+
+    no_config = kwargs.pop("no_config", False)
+    if no_config:
+        kwargs["inherit_env"] = False
+        kwargs["inherit_features"] = False
     server = GenTreeWeb(**kwargs)
     server.start()
 

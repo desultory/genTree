@@ -367,8 +367,10 @@ class GenTreeConfig:
             for flag in COMMON_FLAGS:
                 if flag not in self.env:
                     self.env[flag] = common_flags
-                else:
+                elif common_flags not in self.env[flag]:
                     self.env[flag] += " " + common_flags
+                else:
+                    self.logger.debug("Common flag already set: %s=%s", flag, self.env[flag])
 
     @handle_plural
     def check_dir(self, dirname, create=True):

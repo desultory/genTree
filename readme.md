@@ -72,7 +72,24 @@ The default config is set in `<module_path>/defaults.toml`, and is merged with:
 * `/etc/genTree/config.toml`
 * `~/.config/genTree/config.toml`
 
-> This configuration provides defaults for filters, inherited environment variables, and feautres by default.
+The following defaults can be set:
+
+* `seed`
+* `clean_build`
+* `rebuild`
+* `profile`
+* `profile_repo`
+* `env.features` - Toggled with `inherit_features`
+* `env.use` - Toggled with `inherit_use`
+* `env.binpkg_format`
+* `env.cpu_flags_{x86,arm,ppc}`
+* `emerge_args`
+* `emerge_bools`
+* `clean_filter_options`
+* `tar_filter_options`
+
+> The `env` dict is used to set environment variables.
+> This is INHERITED_CONFIG, ENV_VARS, and DEF_ARGS
 
 ### Bases
 

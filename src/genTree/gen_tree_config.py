@@ -242,6 +242,14 @@ class GenTreeConfig:
     def emerge_flags(self):
         return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
 
+    def __getattr__(self, attr):
+        """ Try to get the attribute normally, if it's None, try the default config"""
+        val = super().__getattr__(attr)
+        if val is None:
+            self.logger.warning("Getting default value for %s", attr)
+            return DEFAULT_CONFIG.get(attr)
+        return val
+
     @handle_plural
     def add_base(self, base: Union[str, Path]):
         """Adds a base is a config which is used as an image base for the current config"""
@@ -262,7 +270,7 @@ class GenTreeConfig:
         """Inherits config from the parent object"""
         self.logger.log(5, "Inheriting config from parent: %s", self.parent)
         for attr in INHERITED_CONFIG:
-            parent_val = getattr(self.parent, attr)
+            parent_val = getattr(self.parent, attr, DEFAULT_CONFIG.get(attr))
             self.logger.debug("Inheriting attribute: %s=%s", attr, parent_val)
             setattr(self, attr, parent_val)
         if self.inherit_config:
@@ -302,6 +310,8 @@ class GenTreeConfig:
             self.inherit_parent()
         elif "seed" not in self.config:
             raise ValueError("Seed must be set in the top level config")
+        else:
+            self.inherit_defaults()
 
         self.load_standard_config()
         for key, value in self.config.items():
@@ -315,6 +325,13 @@ class GenTreeConfig:
 
         self.whiteouts = self.config.get("whiteouts", set())
         self.opaques = self.config.get("opaques", set())
+
+    def inherit_defaults(self):
+        """ Load inherited defaults for the top level config """
+        for attr in INHERITED_CONFIG:
+            if val := DEFAULT_CONFIG.get(attr):
+                self.logger.debug("Inheriting default config value: %s=%s", attr, val)
+                setattr(self, attr, val)
 
     @handle_plural
     def load_defaults(self, argname):

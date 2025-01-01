@@ -83,6 +83,7 @@ The following defaults can be set:
 * `env.use` - Toggled with `inherit_use`
 * `env.binpkg_format`
 * `env.cpu_flags_{x86,arm,ppc}`
+* `env.common_flags` - as well as each common flag type, like cflags, cxxflags, etc.
 * `emerge_args`
 * `emerge_bools`
 * `clean_filter_options`
@@ -178,12 +179,15 @@ The following variables can be used as sets or strings:
 
 * `use` (set) - USE flags to set.
 * `features` (set) - FEATURES to set.
+* `binpkg_format` (gpkg) - The binary package format to use.
+* `cpu_flags_{x86,arm,ppc}` (set) - CPU flags to set.
+* `common_flags` (set) - Common flags to set (appended to CFLAGS, CXXFLAGS, etc.)
+* `cflags` (str) - CFLAGS to set.
+* `cxxflags` (str) - CXXFLAGS to set.
+* `fcflags` (str) - FCFLAGS to set.
+* `fflags` (str) - FFLAGS to set.
 
 > The `use` and `features` variables are sets which can interpret adding and removing flags using `+` and `-` prefixes.
-
-The following variable is set by default:
-
-* `binpkg_format` (gpkg) - The binary package format to use.
 
 ex:
 ```
@@ -191,6 +195,7 @@ ex:
 use = "-dracut ugrd"  # The same as ["-dracut", "ugrd"]
 features = ["test", "-test"]  # Add and remove test (NOOP)
 foo_arg = "bar"  # Set the variable foo_arg to bar
+common_flags = "-O3 -pipe -march=native -flto"  # Set common flags
 
 ```
 

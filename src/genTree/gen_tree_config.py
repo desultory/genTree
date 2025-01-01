@@ -33,7 +33,8 @@ for config in [
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
-ENV_VAR_INHERITED = [*CPU_FLAG_VARS, "binpkg_format"]
+COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"] # The variable common flags should append to
+ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format", "common_flags"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 
 INHERITED_CONFIG = [
@@ -360,6 +361,14 @@ class GenTreeConfig:
             elif (default := DEFAULT_CONFIG["env"].get(env, "")) and self.inherit_env:
                 self.logger.debug("Using default value for %s: %s", env, default)
                 self.env[env] = default
+
+        # Process common flags, pop common_flags from the env dict, apply to each type
+        if common_flags := self.env.pop("common_flags", ""):
+            for flag in COMMON_FLAGS:
+                if flag not in self.env:
+                    self.env[flag] = common_flags
+                else:
+                    self.env[flag] += " " + common_flags
 
     @handle_plural
     def check_dir(self, dirname, create=True):

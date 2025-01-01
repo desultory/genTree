@@ -20,6 +20,12 @@ ex. `genTree-import-seed stage3.tar.xz stage3-openrc .`
 
 ex. `genTree nginx.toml`
 
+### Removing builds
+
+To remove old build tarballs, use `genTree-clean-builds`.
+
+`~/.local/share/genTree/builds/` is use by default, but an alternate build dir can be passed with the first arg.
+
 ## Server usage
 
 genTree can serve binpkgs using `aiohttp` with genTree-server.

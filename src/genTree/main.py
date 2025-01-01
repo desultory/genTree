@@ -27,6 +27,29 @@ def main():
     genTree = GenTree(**kwargs)
     nsexec(genTree.build_tree)
 
+def clean_builds():
+    """Removes all build tarballs from the build directory."""
+    arguments = [
+        {
+            "flags": ["build_root"],
+            "help": "Root directory of the builds.",
+            "action": "store",
+            "default": "~/.local/share/genTree/builds",
+            "nargs": "?",
+        },
+    ]
+
+    kwargs = get_kwargs(
+        package="genTree-clean-builds", description="Removes all build tarballs from the build directory.", arguments=arguments
+    )
+    logger = kwargs.pop("logger")
+    build_root = Path(kwargs.pop("build_root")).expanduser().resolve()
+    logger.info(f"Cleaning build root: {build_root}")
+
+    for build in build_root.iterdir():
+        if build.is_file() and build.suffix == ".tar":
+            logger.info(f"Removing build: {build}")
+            build.unlink()
 
 def import_seed():
     """ Imports a seed archive to ~.local/share/genTree/seeds/<name>"""

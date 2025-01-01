@@ -65,6 +65,15 @@ locales = true # Filter locales when packing
 * `deplean` (false) - Run depclean --with-bdeps=n after emerging.
 * `rebuild` (true) - Force a rebuild of the layer.
 
+### Defaults
+
+The default config is set in `<module_path>/defaults.toml`, and is merged with:
+
+* `/etc/genTree/config.toml`
+* `~/.config/genTree/config.toml`
+
+> This configuration provides defaults for filters, inherited environment variables, and feautres by default.
+
 ### Bases
 
 Bases are configurations used as a base for another config.
@@ -76,7 +85,6 @@ Bases layer contents are extracted to the lower_dir of the build layer's overlay
 The path to a base file can be specified for custom bases.
 
 #### Inheritance
-
 
 * `inherit_use` (true) - Inherit USE flags from the parent.
 * `inherit_features` (true) - Inherit FEATURES from the parent.

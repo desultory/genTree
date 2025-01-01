@@ -308,7 +308,7 @@ class GenTreeConfig:
                 if restricted in self.config:
                     raise ValueError(f"Cannot set {restricted} in a child config")
             self.inherit_parent()
-        elif "seed" not in self.config:
+        elif "seed" not in self.config and "seed" not in DEFAULT_CONFIG:
             raise ValueError("Seed must be set in the top level config")
         else:
             self.inherit_defaults()

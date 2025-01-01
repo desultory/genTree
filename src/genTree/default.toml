@@ -1,0 +1,44 @@
+[env]
+binpkg_format = "gpkg"
+features = [
+"buildpkg",  # Build binary packages
+"binpkg-multi-instance",  # Allow multiple versions of binary packages
+"parallel-fetch",  # Fetch multiple files at once
+"parallel-install",  # Install multiple packages at once
+"-ebuild-locks",
+"-merge-wait",
+"-merge-sync",
+]
+
+
+[emerge_bools]
+verbose = true  # Extra verbosity is nice
+nodeps = false  # Dependencies are typically needed
+usepkg = true  # Use binary packages when available
+with_bdeps = false  # Don't include build dependencies
+
+[emerge_args]
+jobs = 8  # Number of jobs to run in parallel
+
+
+[tar_filter_options]
+whiteout = true
+dev = true
+man = true
+docs = true
+include = true
+charmaps = true
+locales = false
+completions = true
+vardbpkg = false
+
+[clean_filter_options]
+# whiteout =  ## Unimplemneted
+# dev = 
+man = true
+docs = true
+include = true
+charmaps = true
+completions = true
+locales = false
+vardbpkg = false

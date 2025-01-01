@@ -1,5 +1,4 @@
 from copy import deepcopy
-from importlib import import_module
 from os import environ
 from pathlib import Path
 from tomllib import load
@@ -11,7 +10,11 @@ from zenlib.util import colorize, handle_plural, pretty_print
 from .filters import BuildCleaner, GenTreeTarFilter, WhiteoutFilter
 from .types import EmergeBools, PortageFlags
 
-DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args"]
+with open(Path(__file__).parent / "default.toml", "rb") as f:
+    DEFAULT_CONFIG = load(f)
+
+
+DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 ENV_VAR_INHERITED = [*CPU_FLAG_VARS, "binpkg_format"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
@@ -259,7 +262,6 @@ class GenTreeConfig:
     def load_standard_config(self):
         self.load_defaults(DEF_ARGS)  # load defaults from the package __init__
         self.load_env()
-        self.load_emerge_bools()
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
@@ -284,7 +286,7 @@ class GenTreeConfig:
 
         self.load_standard_config()
         for key, value in self.config.items():
-            if key in ["name", "emerge_bools", "logger", "env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
+            if key in ["name", "logger", "env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
                 continue  # Don't set these attributes directly
             setattr(self, key, value)
 
@@ -297,17 +299,8 @@ class GenTreeConfig:
 
     @handle_plural
     def load_defaults(self, argname):
-        defaults = deepcopy(getattr(import_module("genTree"), f"default_{argname}".upper(), {}))
-        setattr(self, argname, defaults | self.config.get(argname, {}))
-
-    def load_emerge_bools(self):
-        """Loads emerge boolean flags from the config"""
-        from . import DEFAULT_EMERGE_BOOLS
-
-        self.emerge_bools = deepcopy(DEFAULT_EMERGE_BOOLS)
-        if emerge_bools := self.config.get("emerge_bools"):
-            self.emerge_bools.update(emerge_bools)
-            self.logger.debug("Loaded emerge boolean flags: %s", self.emerge_bools)
+        default = deepcopy(DEFAULT_CONFIG.get(argname, {}))
+        setattr(self, argname, default | self.config.get(argname, {}))
 
     def load_env(self):
         """Loads environment variables from the config.
@@ -318,18 +311,17 @@ class GenTreeConfig:
         if self.config.get("inherit_use", False):
             use |= self.parent.env["use"]
         self.env = {"use": use}
+        conf_features = self.config.get("env", {}).get("features", "")
         if parent_features := getattr(self.parent, "env", {}).get("features", set()):
-            self.env["features"] = parent_features | PortageFlags(self.config.get("features", ""))
+            self.env["features"] = parent_features | PortageFlags(conf_features)
         else:
-            from . import DEFAULT_FEATURES
-
-            self.env["features"] = DEFAULT_FEATURES | PortageFlags(self.config.get("features", ""))
+            self.env["features"] = set(DEFAULT_CONFIG["env"]["features"]) | PortageFlags(conf_features)
 
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
             if env_value := self.config.get("env", {}).get(env, parent_value):
                 self.env[env] = env_value
-            elif default := getattr(import_module("genTree"), f"default_{env}".upper(), ""):
+            elif default := DEFAULT_CONFIG["env"].get(env, ""):
                 self.logger.debug("Using default value for %s: %s", env, default)
                 self.env[env] = default
 

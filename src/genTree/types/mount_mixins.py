@@ -73,7 +73,12 @@ class MountMixins:
         """Mounts an overlayfs on the seed root"""
         if not self.config.seed_root.exists():
             raise FileNotFoundError(f"Seed root not found: {self.config.seed_root}")
+        if self.config.ephemeral_seed:
+            self.logger.info(" +/~ Mounting tmpfs on: %s", colorize(self.config.temp_seed_root, "yellow"))
+            self.config.check_dir("temp_seed_root")
+            run(["mount", "-t", "tmpfs", "tmpfs", self.config.temp_seed_root], check=True)
         self.config.check_dir(["upper_seed_root", "work_seed_root", "sysroot"])
+
         self.logger.info(" ~/* Mounting seed overlay on: %s", colorize(self.config.sysroot, "cyan", bold=True))
         run(
             [

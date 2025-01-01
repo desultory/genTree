@@ -52,17 +52,11 @@ def find_config(config_file):
 @validatedDataclass
 class GenTreeConfig:
     name: str = None  # The name of the config layer
-    seed: str = None  # Seed name
+    seed: str = None  # Seed name, can only and must be set in the top level config
     config_file: Path = None  # Path to the config file
-    config: dict = None  # The config dictionary
-    parent: Optional["GenTreeConfig"] = None
-    bases: list = None  # List of base layer configs
-    depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
-    packages: list = None  # List of packages to install on the layer
-    unmerge: list = None  # List of packages to unmerge on the layer
-    clean_seed: bool = False  # Cleans the seed directory before chrooting
-    clean_build: bool = True  # Cleans the layer build dir before copying base layers
-    rebuild: bool = False  # Rebuilds the layer from scratch
+    config: dict = None  # The internel config dictionary
+    parent: Optional["GenTreeConfig"] = None  # Parent config object
+    bases: list = None  # List of base layer configs, set in parent when a child is added
     inherit_use: bool = False  # Inherit USE flags from the parent
     inherit_config: bool = False  # Inherit the config overlay from the parent
     # The following directories can only be set in the top level config
@@ -71,24 +65,31 @@ class GenTreeConfig:
     _build_dir: Path = None  # Directory where builds are performed and stored
     _config_dir: Path = None  # Directory where config overlays are stored
     _pkgdir: Path = None  # Directory where packages are stored
-    config_overlay: str = None  # The config overlay to use, a directory in the config dir
+    output_file: Path = None  # Override the output file for the final archive
     # Profiles can be set in any config and are applied before the emerge
     profile: str = None  # The portage profile to use
     profile_repo: str = "gentoo"
+    config_overlay: str = None  # The config overlay to use, a directory in the config dir
     # Archive configuration
     archive_extension: str = ".tar"
-    output_file: Path = None  # Override the output file for the final archive
     # Environment variables
     env: dict = None  # Environment variables to set in the chroot
     # portage args
-    emerge_args: dict = None
-    emerge_bools: EmergeBools = None
+    rebuild: bool = False  # Rebuilds the layer from scratch
+    depclean: bool = False  # runs emerge --depclean --with-bdeps=n after pulling packages
+    packages: list = None  # List of packages to install on the layer
+    unmerge: list = None  # List of packages to unmerge on the layer
+    emerge_args: dict = None  # Emerge string arguments
+    emerge_bools: EmergeBools = None  # Emerge boolean flags
     seed_update: bool = True  # Update the seed before building
     seed_update_args: str = "--jobs 8 --update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world"
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
     # Build cleaner
+    clean_seed: bool = False  # Cleans the seed directory before chrooting
+    ephemeral_seed: bool = False  # use a tmpfs for the seed overlay upper dir
+    clean_build: bool = True  # Cleans the layer build dir before copying base layers
     clean_filter_options: dict = None  # Options for the clean filter
     tar_filter_options: dict = None  # Options for the tar filter
     refilter: bool = True  # Refilter the outermost layer
@@ -161,6 +162,8 @@ class GenTreeConfig:
 
     @property
     def upper_seed_root(self):
+        if self.ephemeral_seed:
+            return self.temp_seed_root / "upper"
         return self.sysroot.with_name(f"{self.seed}_upper")
 
     @property
@@ -169,7 +172,13 @@ class GenTreeConfig:
 
     @property
     def work_seed_root(self):
+        if self.ephemeral_seed:
+            return self.temp_seed_root / "work"
         return self.sysroot.with_name(f"{self.seed}_work")
+
+    @property
+    def temp_seed_root(self):
+        return self.sysroot.with_name(f"{self.seed}_temp")
 
     @property
     def layer_archive(self):
@@ -251,7 +260,6 @@ class GenTreeConfig:
         self.load_defaults(DEF_ARGS)  # load defaults from the package __init__
         self.load_env()
         self.load_emerge_bools()
-
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""

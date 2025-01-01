@@ -23,7 +23,7 @@ class GenTreeWeb:
         self.listen_port = listen_port
         self.build_queue = []  # Don't tell anyone the queue is a list
         self.queue_lock = Lock()
-        self.genTree = GenTree(name="GenTreeWeb", seed=seed, clean_seed=True, logger=self.logger)
+        self.genTree = GenTree(name="GenTreeWeb", seed=seed, logger=self.logger, **kwargs)
         self.app = Application(logger=self.logger)
         self.app.on_startup.append(self.app_tasks)
         self.app.router.add_get("/pkg", self.add_package)
@@ -84,6 +84,12 @@ def main():
         {"flags": ["seed"], "help": "System seed to use", "action": "store"},
         {"flags": ["-a", "--address"], "help": "IP to listen on", "dest": "listen_ip", "action": "store"},
         {"flags": ["-p", "--port"], "help": "Port to listen on", "dest": "listen_port", "action": "store"},
+        {
+            "flags": ["--ephemeral-seed"],
+            "dest": "ephemeral_seed",
+            "help": "Use a tmpfs mount for the seed upper dir",
+            "action": "store_true",
+        },
     ]
 
     kwargs = get_kwargs(package=__package__, description="Builds packages on demand", arguments=arguments, strict=True)

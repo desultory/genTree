@@ -265,6 +265,7 @@ class GenTreeConfig:
             self.load_config(config_file)
         else:
             self.config = {}
+            self.name = self.name or self.seed
             self.load_standard_config()
 
     def inherit_parent(self):

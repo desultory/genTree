@@ -55,7 +55,7 @@ CHILD_RESTRICTED = [
     "_pkgdir",
     "config_dir",
     "_config_dir",
-    "confroot",
+    "conf_root",
     "output_file",
     "refilter",
 ]

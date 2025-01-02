@@ -295,7 +295,9 @@ class GenTree(MountMixins, OCIMixins):
 
     def init_namespace(self):
         """Initializes the namespace for the current config
-        If clean_seed is True, cleans the seed overlay upper and work dirs"""
+        If clean_seed is True, cleans the seed overlay upper and work dirs
+        if seed_update is True, updates the seed with seed_update_args
+        """
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
         if self.config.clean_seed:
             self.clean_seed_overlay()
@@ -310,19 +312,29 @@ class GenTree(MountMixins, OCIMixins):
         self.logger.info(" -/~ Chrooting into: %s", colorize(self.config.sysroot, "red"))
         chroot(self.config.sysroot)
 
-    def build_tree(self):
-        """Builds the tree in a namespaced chroot environment.
-        Packs the resulting tree into {self.config.output_file} or {self.config.output_archive}."""
-        self.init_namespace()
         if self.config.seed_update:
             self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
             self.run_emerge(self.config.seed_update_args.split())
         else:
             self.logger.debug("Skipping seed update")
+
+    def init_crossdev(self, chain):
+        """Creates a crossdev toolchain given a chain tuple
+        Emerge the crossdev package on a clean, updated seed
+        """
+        self.config.clean_seed = True
+        self.config.seed_update = True
+        self.init_namespace()
+        self.run_emerge(["crossdev"])
+        run(["crossdev", "--target", chain], check=True)
+
+    def build_tree(self):
+        """Builds the tree in a namespaced chroot environment.
+        Packs the resulting tree into {self.config.output_file} or {self.config.output_archive}."""
+        self.init_namespace()
         self.logger.info(" +++ Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
         self.build(config=self.config)
         self.pack_all(config=self.config)  # Pack the entire tree
-
 
     def build_package(self, package):
         """Builds a single package based on the current config"""

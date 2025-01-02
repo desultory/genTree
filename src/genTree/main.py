@@ -51,6 +51,27 @@ def clean_builds():
             logger.info(f"Removing build: {build}")
             build.unlink()
 
+def init_crossdev():
+    """ Initialized a crossdev environment for the specified seed."""
+    arguments = [
+        {
+            "flags": ["seed"],
+            "help": "Name of the seed.",
+            "action": "store",
+        },
+        {
+            "flags": ["crossdev_target"],
+            "help": "The crossdev toolchain type.",
+            "action": "store",
+        },
+    ]
+    kwargs = get_kwargs(
+        package="genTree-init-crossdev", description="Initializes a crossdev toolchain", arguments=arguments
+    )
+    crossdev_target = kwargs.pop("crossdev_target")
+    genTree = GenTree(**kwargs)
+    nsexec(genTree.init_crossdev, crossdev_target)
+
 def import_seed():
     """ Imports a seed archive to ~.local/share/genTree/seeds/<name>"""
     arguments = [

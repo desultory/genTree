@@ -303,7 +303,11 @@ class GenTree(MountMixins, OCIMixins):
         if self.config.clean_seed:
             self.clean_seed_overlay()
 
-        self.mount_seed_overlay()
+        if not self.config.no_seed_overlay:
+            self.mount_seed_overlay() # Don't use an overly if not needed
+        else:
+            self.logger.warning(" !-! Skipping seed overlay creation.")
+
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
@@ -316,9 +320,11 @@ class GenTree(MountMixins, OCIMixins):
 
     def update_seed(self):
         """Updates the seed overlay"""
+        self.config.no_seed_overlay = True
         self.init_namespace()
         self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
         self.run_emerge(split(self.config.seed_update_args))
+        self.run_emerge(["--depclean"])  # Depclean after world update
 
     def init_crossdev(self, chain):
         """Creates a crossdev toolchain given a chain tuple

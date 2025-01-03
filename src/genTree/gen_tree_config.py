@@ -75,6 +75,7 @@ def find_config(config_file):
 class GenTreeConfig:
     name: str = None  # The name of the config layer
     seed: str = None  # Seed name, can only and must be set in the top level config
+    no_seed_overlay: bool = False  # Do not use a seed overlay, used for updates/upgrades
     config_file: Path = None  # Path to the config file
     config: dict = None  # The internal config dictionary
     parent: Optional["GenTreeConfig"] = None  # Parent config object
@@ -185,6 +186,8 @@ class GenTreeConfig:
 
     @property
     def sysroot(self):
+        if self.no_seed_overlay:
+            return self.seed_dir / self.seed
         return self.seed_dir / f"{self.seed}_sysroot"
 
     @property

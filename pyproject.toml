@@ -25,6 +25,7 @@ dependencies = [
 [project.scripts]
 genTree = "genTree.main:main"
 genTree-import-seed = "genTree.main:import_seed"
+genTree-update-seed = "genTree.main:update_seed"
 genTree-init-crossdev = "genTree.main:init_crossdev"
 genTree-clean-builds = "genTree.main:clean_builds"
 genTree-server = "genTree.package_server:main"

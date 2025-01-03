@@ -1,3 +1,5 @@
+seed_update_args = "--jobs 4 --update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world"
+
 [env]
 binpkg_format = "gpkg"
 features = [

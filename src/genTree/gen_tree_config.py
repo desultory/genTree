@@ -32,8 +32,9 @@ for config in [
 
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
+NO_DEFAULT_LOOKUP = ["name", "config_file", "parent", "bases", "whiteouts", "opaques"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
-COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"] # The variable common flags should append to
+COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format", "common_flags"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 
@@ -104,8 +105,7 @@ class GenTreeConfig:
     unmerge: list = None  # List of packages to unmerge on the layer
     emerge_args: dict = None  # Emerge string arguments
     emerge_bools: EmergeBools = None  # Emerge boolean flags
-    seed_update: bool = True  # Update the seed before building
-    seed_update_args: str = "--jobs 8 --update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world"
+    seed_update_args: str = None  # Arguments to use when updating the seed
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -150,6 +150,10 @@ class GenTreeConfig:
             return self._config_dir.expanduser().resolve()
         else:
             return self.on_conf_root("config")
+
+    @property
+    def crossdev_repo_dir(self):
+        return Path("/crossdev_repo")
 
     @property
     def buildname(self):
@@ -243,11 +247,11 @@ class GenTreeConfig:
     def emerge_flags(self):
         return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
 
-    def __getattr__(self, attr):
-        """ Try to get the attribute normally, if it's None, try the default config"""
-        val = super().__getattr__(attr)
-        if val is None:
-            self.logger.warning("Getting default value for %s", attr)
+    def __getattribute__(self, attr):
+        """Try to get the attribute normally, if it's None, try the default config"""
+        val = super().__getattribute__(attr)
+        if val is None and attr not in NO_DEFAULT_LOOKUP and not attr.startswith("_"):
+            self.logger.debug("Getting default value for %s", attr)
             return DEFAULT_CONFIG.get(attr)
         return val
 
@@ -329,7 +333,7 @@ class GenTreeConfig:
         self.opaques = self.config.get("opaques", set())
 
     def inherit_defaults(self):
-        """ Load inherited defaults for the top level config """
+        """Load inherited defaults for the top level config"""
         for attr in INHERITED_CONFIG:
             if val := DEFAULT_CONFIG.get(attr):
                 self.logger.debug("Inheriting default config value: %s=%s", attr, val)

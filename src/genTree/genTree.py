@@ -298,6 +298,8 @@ class GenTree(MountMixins, OCIMixins):
         If clean_seed is True, cleans the seed overlay upper and work dirs
         if seed_update is True, updates the seed with seed_update_args
         """
+        from os import chdir
+
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
         if self.config.clean_seed:
             self.clean_seed_overlay()
@@ -311,6 +313,7 @@ class GenTree(MountMixins, OCIMixins):
         self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)
         self.logger.info(" -/~ Chrooting into: %s", colorize(self.config.sysroot, "red"))
         chroot(self.config.sysroot)
+        chdir("/")
 
         if self.config.seed_update:
             self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
@@ -325,7 +328,7 @@ class GenTree(MountMixins, OCIMixins):
         self.config.clean_seed = True
         self.config.seed_update = True
         self.init_namespace()
-        self.run_emerge(["crossdev"])
+        self.run_emerge(["--usepkg=y", "crossdev"])
         run(["crossdev", "--target", chain], check=True)
 
     def build_tree(self):

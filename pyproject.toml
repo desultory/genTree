@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "zenlib >= 3.1.2",
+    "zenlib >= 3.1.6",
     "aiohttp >= 3.10.0",
 ]
 

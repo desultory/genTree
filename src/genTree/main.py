@@ -19,6 +19,11 @@ def main():
             "action": "store",
             "default": "config.toml",
         },
+        {
+            "flags": ["--crossdev-target"],
+            "help": "The crossdev toolchain type.",
+            "action": "store",
+        },
     ]
 
     kwargs = get_kwargs(

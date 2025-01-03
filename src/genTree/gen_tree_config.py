@@ -40,6 +40,7 @@ ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 
 INHERITED_CONFIG = [
     "seed",
+    "crossdev_target",
     "clean_build",
     "rebuild",
     "profile",
@@ -48,6 +49,7 @@ INHERITED_CONFIG = [
 
 CHILD_RESTRICTED = [
     "seed",
+    "crossdev_target",
     "seed_dir",
     "_seed_dir",
     "build_dir",
@@ -110,6 +112,7 @@ class GenTreeConfig:
     emerge_args: dict = None  # Emerge string arguments
     emerge_bools: EmergeBools = None  # Emerge boolean flags
     seed_update_args: str = None  # Arguments to use when updating the seed
+    crossdev_target: str = None  # Crossdev target tuple
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -168,6 +171,8 @@ class GenTreeConfig:
 
     @property
     def buildname(self):
+        if self.crossdev_target:
+            return f"{self.seed}-{self.crossdev_target}-{self.name}"
         return f"{self.seed}-{self.name}"
 
     @property
@@ -274,6 +279,8 @@ class GenTreeConfig:
         """Try to get the attribute normally, if it's None, try the default config"""
         val = super().__getattribute__(attr)
         if val is None and attr not in NO_DEFAULT_LOOKUP and not attr.startswith("_"):
+            if attr == "seed":
+                return DEFAULT_CONFIG.get("seed")  # Seed is used in a lookup in get_default
             self.logger.debug("Getting default value for %s", attr)
             return self.get_default(attr)
         return val

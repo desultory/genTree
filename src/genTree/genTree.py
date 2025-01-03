@@ -113,12 +113,20 @@ class GenTree(MountMixins, OCIMixins):
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
         config = config or self.config
-        config.set_portage_profile()  # Ensure the profile is set
-        config.set_portage_env()  # Ensure the env is set
+        if not config.crossdev_target:
+            emerge_cmd = "emerge"
+            config.set_portage_profile()  # Ensure the profile is set
+            config.set_portage_env()  # Ensure the env is set
+        else:
+            emerge_cmd = f"{config.crossdev_target}-emerge"
+
         self.logger.info(
-            " [E] [%s] emerge %s", colorize(config.name, "green", bright=True, bold=True), " ".join(map(str, args))
+            " [E] [%s] %s %s",
+            colorize(config.name, "green", bright=True, bold=True),
+            colorize(emerge_cmd, "magenta", bright=True, bold=True) if emerge_cmd != "emerge" else "emerge",
+            " ".join(map(str, args)),
         )
-        ret = run(["emerge", *args])
+        ret = run([emerge_cmd, *args])
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
             raise RuntimeError(f"Failed to run: emerge {args}")
@@ -304,7 +312,7 @@ class GenTree(MountMixins, OCIMixins):
             self.clean_seed_overlay()
 
         if not self.config.no_seed_overlay:
-            self.mount_seed_overlay() # Don't use an overly if not needed
+            self.mount_seed_overlay()  # Don't use an overly if not needed
         else:
             self.logger.warning(" !-! Skipping seed overlay creation.")
 

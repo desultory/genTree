@@ -113,12 +113,9 @@ class GenTree(MountMixins, OCIMixins):
     def run_emerge(self, args, config: GenTreeConfig = None):
         """Runs the emerge command with the passed args"""
         config = config or self.config
-        if not config.crossdev_target:
-            emerge_cmd = "emerge"
-            config.set_portage_profile()  # Ensure the profile is set
-            config.set_portage_env()  # Ensure the env is set
-        else:
-            emerge_cmd = f"{config.crossdev_target}-emerge"
+        emerge_cmd = config.emerge_cmd
+        config.set_portage_profile()  # Ensure the profile is set
+        config.set_portage_env()  # Ensure the env is set
 
         self.logger.info(
             " [E] [%s] %s %s",

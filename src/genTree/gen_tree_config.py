@@ -1,6 +1,7 @@
 from copy import deepcopy
 from os import environ
 from pathlib import Path
+from subprocess import run, SubprocessError
 from tomllib import load
 from typing import Optional, Union
 
@@ -265,6 +266,23 @@ class GenTreeConfig:
     def emerge_flags(self):
         return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
 
+    @property
+    def emerge_cmd(self):
+        return f"emerge-{self.crossdev_target}" if self.crossdev_target else "emerge"
+
+    @property
+    def emerge_profiles(self):
+        cfgroot = f"/usr/{self.crossdev_target}" if self.crossdev_target else "/"
+        old_root = environ.get("PORTAGE_CONFIGROOT")
+        environ["PORTAGE_CONFIGROOT"] = cfgroot
+        try:
+            profles = run(["eselect", "profile", "list"], check=True, capture_output=True)
+        except SubprocessError as e:
+            raise ValueError(f"Failed to get profiles: {e}")
+        if old_root:
+            environ["PORTAGE_CONFIGROOT"] = old_root
+        return profles.stdout.decode()
+
     def get_default(self, attr, *subattrs, default=None):
         """Gets defaults set in the DEFAULT_CONFIG, first using overrides for the seed
         then using global defaults.
@@ -431,6 +449,12 @@ class GenTreeConfig:
         if not self.profile:
             return self.logger.debug("No portage profile set")
 
+        if self.crossdev_target and self.profile_repo != "crossdev":
+            self.logger.warning(
+                f" [!] Crossdev target set, but profile_repo is '{self.profile_repo}', setting to 'crossdev'"
+            )
+            self.profile_repo = "crossdev"
+
         profile_sym = Path("/etc/portage/make.profile")
         profile_target = Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}")
         if profile_sym.is_symlink() and profile_sym.resolve() == profile_target:
@@ -444,6 +468,10 @@ class GenTreeConfig:
 
         if profile_sym.exists(follow_symlinks=False):
             profile_sym.unlink()
+
+        if not profile_target.exists():
+            self.logger.info(" -+- %s", self.emerge_profiles)
+            raise FileNotFoundError(f"Portage profile not found: {profile_target}")
 
         profile_sym.symlink_to(profile_target, target_is_directory=True)
         self.logger.debug("Set portage profile symlink: %s -> %s", profile_sym, profile_sym.resolve())

@@ -19,6 +19,16 @@ def main():
             "action": "store",
             "default": "config.toml",
         },
+        {
+            "flags": ["--crossdev-target"],
+            "help": "The crossdev toolchain type.",
+            "action": "store",
+        },
+        {
+            "flags": ["--profile"],
+            "help": "The profile to use.",
+            "action": "store",
+        },
     ]
 
     kwargs = get_kwargs(
@@ -54,6 +64,27 @@ def clean_builds():
             logger.info(f"Removing build: {build}")
             build.unlink()
 
+
+def execute():
+    """Executes a command in a seed"""
+    from argparse import REMAINDER
+    arguments = [
+            {
+                "flags": ["seed"],
+                "help": "Name of the seed.",
+                "action": "store",
+            },
+            {
+                "flags": ["command"],
+                "help": "Command to execute.",
+                "action": "store",
+                "nargs": REMAINDER,
+            },
+        ]
+
+    kwargs = get_kwargs(package="genTree-exec", description="Executes a command in a seed", arguments=arguments)
+    genTree = GenTree(**kwargs)
+    nsexec(genTree.execute, kwargs.pop("command"))
 
 def update_seed():
     """Updates a seed"""

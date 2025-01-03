@@ -324,6 +324,7 @@ class GenTree(MountMixins, OCIMixins):
         self.init_namespace()
         self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
         self.run_emerge(split(self.config.seed_update_args))
+        self.run_emerge(["--depclean"])  # Depclean after world update
 
     def init_crossdev(self, chain):
         """Creates a crossdev toolchain given a chain tuple

@@ -115,6 +115,7 @@ The following defaults can be set:
 * `clean_build`
 * `rebuild`
 * `profile`
+* `crossdev_profile` - Profile which is used when crossdev-target is set
 * `profile_repo`
 * `env.features` - Toggled with `inherit_features`
 * `env.use` - Toggled with `inherit_use`

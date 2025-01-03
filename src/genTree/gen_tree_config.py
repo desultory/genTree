@@ -19,7 +19,8 @@ for config in [
     Path(__file__).parent / "default.toml",
     Path("/etc/genTree/config.toml"),
     Path("~/.config/genTree/config.toml").expanduser(),
-]:
+]:  # For "default configs", top-level attributes overwrite previous ones
+    # User supplied config is merged over the final DEFAULT_CONFIG
     if config.exists():
         with open(config, "rb") as f:
             config = load(f)
@@ -184,11 +185,11 @@ class GenTreeConfig:
 
     @property
     def lower_root(self):
-        return self.overlay_root.with_name(f"{self.buildname}_lower")
+        return self.overlay_root.with_name(f".{self.buildname}_lower")
 
     @property
     def work_root(self):
-        return self.overlay_root.with_name(f"{self.buildname}_work")
+        return self.overlay_root.with_name(f".{self.buildname}_work")
 
     @property
     def upper_root(self):
@@ -222,11 +223,11 @@ class GenTreeConfig:
     def work_seed_root(self):
         if self.ephemeral_seed:
             return self.temp_seed_root / "work"
-        return self.sysroot.with_name(f"{self.seed}_work")
+        return self.sysroot.with_name(f".{self.seed}_work")
 
     @property
     def temp_seed_root(self):
-        return self.sysroot.with_name(f"{self.seed}_temp")
+        return self.sysroot.with_name(f".{self.seed}_temp")
 
     @property
     def layer_archive(self):

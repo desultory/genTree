@@ -138,8 +138,16 @@ class GenTreeConfig:
     def pkgdir(self):
         if self._pkgdir:
             return self._pkgdir.expanduser().resolve()
+        elif self.crossdev_target:
+            return self.on_conf_root(f"pkgdir_{self.crossdev_target}")
         else:
             return self.on_conf_root("pkgdir")
+
+    @property
+    def pkgdir_target(self):
+        if self.crossdev_target:
+            return self.sysroot / f"usr/{self.crossdev_target}/var/cache/binpkgs"
+        return self.sysroot / "var/cache/binpkgs"
 
     @property
     def build_dir(self):

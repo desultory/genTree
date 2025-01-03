@@ -1,6 +1,7 @@
 from copy import deepcopy
 from os import environ
 from pathlib import Path
+from subprocess import SubprocessError, run
 from tomllib import load
 from typing import Optional, Union
 
@@ -112,7 +113,9 @@ class GenTreeConfig:
     emerge_args: dict = None  # Emerge string arguments
     emerge_bools: EmergeBools = None  # Emerge boolean flags
     seed_update_args: str = None  # Arguments to use when updating the seed
+    # Crossdev stuff
     crossdev_target: str = None  # Crossdev target tuple
+    crossdev_profile: str = None  # Profile override to use for crossdev
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -264,6 +267,23 @@ class GenTreeConfig:
     @property
     def emerge_flags(self):
         return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
+
+    @property
+    def emerge_cmd(self):
+        return f"emerge-{self.crossdev_target}" if self.crossdev_target else "emerge"
+
+    @property
+    def emerge_profiles(self):
+        cfgroot = f"/usr/{self.crossdev_target}" if self.crossdev_target else "/"
+        old_root = environ.get("PORTAGE_CONFIGROOT")
+        environ["PORTAGE_CONFIGROOT"] = cfgroot
+        try:
+            profles = run(["eselect", "profile", "list"], check=True, capture_output=True)
+        except SubprocessError as e:
+            raise ValueError(f"Failed to get profiles: {e}")
+        if old_root:
+            environ["PORTAGE_CONFIGROOT"] = old_root
+        return profles.stdout.decode()
 
     def get_default(self, attr, *subattrs, default=None):
         """Gets defaults set in the DEFAULT_CONFIG, first using overrides for the seed
@@ -428,28 +448,44 @@ class GenTreeConfig:
 
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
-        if not self.profile:
+        if not self.profile and not self.crossdev_profile:
             return self.logger.debug("No portage profile set")
 
+        profile, profile_repo = self.profile, self.profile_repo
         profile_sym = Path("/etc/portage/make.profile")
-        profile_target = Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}")
+        if self.crossdev_target:
+            profile = self.crossdev_profile or self.profile
+            profile_sym = Path(f"/usr/{self.crossdev_target}/etc/portage/make.profile")
+
+        profile_target = Path(f"/var/db/repos/{profile_repo}/profiles/{profile}")
         if profile_sym.is_symlink() and profile_sym.resolve() == profile_target:
             return self.logger.debug("Portage profile already set: %s -> %s", profile_sym, profile_target)
 
         self.logger.info(
             " ~-~ [%s] Setting portage profile: %s",
-            colorize(self.profile_repo, "yellow"),
-            colorize(self.profile, "blue"),
+            colorize(profile_repo, "yellow"),
+            colorize(profile, "blue"),
         )
 
         if profile_sym.exists(follow_symlinks=False):
             profile_sym.unlink()
+
+        if not profile_target.exists():
+            self.logger.info(" -+- %s", self.emerge_profiles)
+            raise FileNotFoundError(f"Portage profile not found: {profile_target}")
 
         profile_sym.symlink_to(profile_target, target_is_directory=True)
         self.logger.debug("Set portage profile symlink: %s -> %s", profile_sym, profile_sym.resolve())
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
+        set_vars = ENV_VARS
+        if self.crossdev_target:  # Dont't set
+            remove_flags = COMMON_FLAGS + CPU_FLAG_VARS + ["common_flags"]
+            for flag in remove_flags:
+                if flag in set_vars:
+                    self.logger.debug("Removing flag for crossdev: %s", flag)
+                    set_vars.remove(flag)
         for env in ENV_VARS:
             env_value = getattr(self, "env", {}).get(env)
             env = env.upper()

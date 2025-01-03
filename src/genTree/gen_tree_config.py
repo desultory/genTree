@@ -56,6 +56,8 @@ CHILD_RESTRICTED = [
     "_pkgdir",
     "config_dir",
     "_config_dir",
+    "distfile_dir",
+    "_distfile_dir",
     "conf_root",
     "output_file",
     "refilter",
@@ -90,6 +92,7 @@ class GenTreeConfig:
     _build_dir: Path = None  # Directory where builds are performed and stored
     _config_dir: Path = None  # Directory where config overlays are stored
     _pkgdir: Path = None  # Directory where packages are stored
+    _distfile_dir: Path = None  # Directory where distfiles are stored
     output_file: Path = None  # Override the output file for the final archive
     # Profiles can be set in any config and are applied before the emerge
     profile: str = None  # The portage profile to use
@@ -151,6 +154,13 @@ class GenTreeConfig:
             return self._config_dir.expanduser().resolve()
         else:
             return self.on_conf_root("config")
+
+    @property
+    def distfile_dir(self):
+        if self._distfile_dir:
+            return self._distfile_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("distfiles")
 
     @property
     def crossdev_repo_dir(self):

@@ -90,7 +90,9 @@ def execute():
         ]
 
     kwargs = get_kwargs(package="genTree-exec", description="Executes a command in a seed", arguments=arguments)
-    print(kwargs)
+    # If at the INFO (20) level, set to WARNING (30), if below, leave as is
+    if kwargs["logger"].getEffectiveLevel() == 20:
+        kwargs["logger"].setLevel(30)
     cmd = kwargs.pop("command")
     genTree = GenTree(**kwargs)
     nsexec(genTree.execute, cmd)

@@ -1,7 +1,7 @@
 from copy import deepcopy
 from os import environ
 from pathlib import Path
-from subprocess import run, SubprocessError
+from subprocess import SubprocessError, run
 from tomllib import load
 from typing import Optional, Union
 
@@ -113,7 +113,9 @@ class GenTreeConfig:
     emerge_args: dict = None  # Emerge string arguments
     emerge_bools: EmergeBools = None  # Emerge boolean flags
     seed_update_args: str = None  # Arguments to use when updating the seed
+    # Crossdev stuff
     crossdev_target: str = None  # Crossdev target tuple
+    crossdev_profile: str = None  # Profile override to use for crossdev
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -446,24 +448,23 @@ class GenTreeConfig:
 
     def set_portage_profile(self):
         """Sets the portage profile in the sysroot"""
-        if not self.profile:
+        if not self.profile and not self.crossdev_profile:
             return self.logger.debug("No portage profile set")
 
-        if self.crossdev_target and self.profile_repo != "crossdev":
-            self.logger.warning(
-                f" [!] Crossdev target set, but profile_repo is '{self.profile_repo}', setting to 'crossdev'"
-            )
-            self.profile_repo = "crossdev"
-
+        profile, profile_repo = self.profile, self.profile_repo
         profile_sym = Path("/etc/portage/make.profile")
-        profile_target = Path(f"../../var/db/repos/{self.profile_repo}/profiles/{self.profile}")
+        if self.crossdev_target:
+            profile = self.crossdev_profile or self.profile
+            profile_sym = Path(f"/usr/{self.crossdev_target}/etc/portage/make.profile")
+
+        profile_target = Path(f"/var/db/repos/{profile_repo}/profiles/{profile}")
         if profile_sym.is_symlink() and profile_sym.resolve() == profile_target:
             return self.logger.debug("Portage profile already set: %s -> %s", profile_sym, profile_target)
 
         self.logger.info(
             " ~-~ [%s] Setting portage profile: %s",
-            colorize(self.profile_repo, "yellow"),
-            colorize(self.profile, "blue"),
+            colorize(profile_repo, "yellow"),
+            colorize(profile, "blue"),
         )
 
         if profile_sym.exists(follow_symlinks=False):
@@ -478,6 +479,13 @@ class GenTreeConfig:
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
+        set_vars = ENV_VARS
+        if self.crossdev_target:  # Dont't set
+            remove_flags = COMMON_FLAGS + CPU_FLAG_VARS + ["common_flags"]
+            for flag in remove_flags:
+                if flag in set_vars:
+                    self.logger.debug("Removing flag for crossdev: %s", flag)
+                    set_vars.remove(flag)
         for env in ENV_VARS:
             env_value = getattr(self, "env", {}).get(env)
             env = env.upper()

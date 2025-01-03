@@ -327,6 +327,12 @@ class GenTree(MountMixins, OCIMixins):
         chroot(self.config.sysroot)
         chdir("/")
 
+    def execute(self, args):
+        """Runs a command in the namespace environment"""
+        self.init_namespace()
+        self.logger.info(" ### Running command: %s", colorize(args, "green"))
+        run(args)
+
     def update_seed(self):
         """Updates the seed overlay"""
         self.config.clean_seed = False

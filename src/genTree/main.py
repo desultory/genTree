@@ -75,6 +75,13 @@ def execute():
                 "action": "store",
             },
             {
+                "flags": ["--persistent"],
+                "dest": "no_seed_overlay",
+                "help": "Write to the seed, not an overlay.",
+                "action": "store_true",
+            },
+
+            {
                 "flags": ["command"],
                 "help": "Command to execute.",
                 "action": "store",
@@ -83,8 +90,10 @@ def execute():
         ]
 
     kwargs = get_kwargs(package="genTree-exec", description="Executes a command in a seed", arguments=arguments)
+    print(kwargs)
+    cmd = kwargs.pop("command")
     genTree = GenTree(**kwargs)
-    nsexec(genTree.execute, kwargs.pop("command"))
+    nsexec(genTree.execute, cmd)
 
 def update_seed():
     """Updates a seed"""

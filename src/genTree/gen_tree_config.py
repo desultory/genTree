@@ -144,7 +144,7 @@ class GenTreeConfig:
             return self.on_conf_root("pkgdir")
 
     @property
-    def pkgdir_target(self):
+    def pkgdir_mount(self):
         if self.crossdev_target:
             return self.sysroot / f"usr/{self.crossdev_target}/var/cache/binpkgs"
         return self.sysroot / "var/cache/binpkgs"

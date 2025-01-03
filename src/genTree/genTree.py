@@ -321,6 +321,7 @@ class GenTree(MountMixins, OCIMixins):
 
     def update_seed(self):
         """Updates the seed overlay"""
+        self.config.clean_seed = False
         self.config.no_seed_overlay = True
         self.init_namespace()
         self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
@@ -332,7 +333,7 @@ class GenTree(MountMixins, OCIMixins):
         Emerge the crossdev package on a clean, updated seed
         """
         self.config.clean_seed = False
-        self.config.seed_update = True
+        self.config.no_seed_overlay = True
         self.config.env["features"] = "-usersandbox"
         self.init_namespace()
         self.run_emerge(["--usepkg=y", "--noreplace", "crossdev", "eselect-repository"])

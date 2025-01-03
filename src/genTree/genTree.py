@@ -1,7 +1,8 @@
-from os import chroot
+from os import chdir, chroot
 from pathlib import Path
+from shlex import split
 from shutil import rmtree
-from subprocess import run
+from subprocess import CalledProcessError, run
 from tarfile import ReadError, TarFile
 
 from zenlib.logging import loggify
@@ -296,9 +297,7 @@ class GenTree(MountMixins, OCIMixins):
     def init_namespace(self):
         """Initializes the namespace for the current config
         If clean_seed is True, cleans the seed overlay upper and work dirs
-        if seed_update is True, updates the seed with seed_update_args
         """
-        from os import chdir
 
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
         if self.config.clean_seed:
@@ -315,21 +314,31 @@ class GenTree(MountMixins, OCIMixins):
         chroot(self.config.sysroot)
         chdir("/")
 
-        if self.config.seed_update:
-            self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
-            self.run_emerge(self.config.seed_update_args.split())
-        else:
-            self.logger.debug("Skipping seed update")
+    def update_seed(self):
+        """Updates the seed overlay"""
+        self.init_namespace()
+        self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
+        self.run_emerge(split(self.config.seed_update_args))
 
     def init_crossdev(self, chain):
         """Creates a crossdev toolchain given a chain tuple
         Emerge the crossdev package on a clean, updated seed
         """
-        self.config.clean_seed = True
+        self.config.clean_seed = False
         self.config.seed_update = True
+        self.config.env["features"] = "-usersandbox"
         self.init_namespace()
-        self.run_emerge(["--usepkg=y", "crossdev"])
-        run(["crossdev", "--target", chain], check=True)
+        self.run_emerge(["--usepkg=y", "--noreplace", "crossdev", "eselect-repository"])
+        try:
+            run(["eselect", "repository", "enable", "crossdev"], check=True, capture_output=True)
+        except CalledProcessError as e:
+            raise RuntimeError("Failed to enable crossdev repository: %s" % e.stderr.decode()) from e
+
+        try:
+            run(["crossdev", "--target", chain], check=True)
+        except CalledProcessError as e:
+            self.logger.error("Failed to run crossdev: %s", e.stderr.decode())
+            raise RuntimeError("Failed to create crossdev toolchain") from e
 
     def build_tree(self):
         """Builds the tree in a namespaced chroot environment.
@@ -343,4 +352,6 @@ class GenTree(MountMixins, OCIMixins):
         """Builds a single package based on the current config"""
         self.init_namespace()
         self.logger.info(" +++ Building package: %s", colorize(package, "green", bold=True))
-        self.run_emerge(["--oneshot", "--autounmask=y", "--autounmask-continue=y", "--usepkg=y", "--jobs=8", "--noreplace", package])
+        self.run_emerge(
+            ["--oneshot", "--autounmask=y", "--autounmask-continue=y", "--usepkg=y", "--jobs=8", "--noreplace", package]
+        )

@@ -4,11 +4,11 @@ from pathlib import Path
 from shutil import copytree
 from tarfile import TarFile
 
-from zenlib.util import get_kwargs
 from zenlib.namespace import nsexec
+from zenlib.util import get_kwargs
 
-from .genTree import GenTree
 from .filters import GenTreeTarFilter
+from .genTree import GenTree
 
 
 def main():
@@ -27,6 +27,7 @@ def main():
     genTree = GenTree(**kwargs)
     nsexec(genTree.build_tree)
 
+
 def clean_builds():
     """Removes all build tarballs from the build directory."""
     arguments = [
@@ -40,7 +41,9 @@ def clean_builds():
     ]
 
     kwargs = get_kwargs(
-        package="genTree-clean-builds", description="Removes all build tarballs from the build directory.", arguments=arguments
+        package="genTree-clean-builds",
+        description="Removes all build tarballs from the build directory.",
+        arguments=arguments,
     )
     logger = kwargs.pop("logger")
     build_root = Path(kwargs.pop("build_root")).expanduser().resolve()
@@ -51,8 +54,29 @@ def clean_builds():
             logger.info(f"Removing build: {build}")
             build.unlink()
 
+
+def update_seed():
+    """Updates a seed"""
+    arguments = [
+        {
+            "flags": ["seed"],
+            "help": "Name of the seed.",
+            "action": "store",
+        },
+        {
+            "flags": ["seed_update_args"],
+            "help": "Argument string to pass to the update function.",
+            "action": "store",
+            "nargs": "?",
+        },
+    ]
+    kwargs = get_kwargs(package="genTree-update-seed", description="Updates a seed", arguments=arguments)
+    genTree = GenTree(**kwargs)
+    nsexec(genTree.update_seed)
+
+
 def init_crossdev():
-    """ Initialized a crossdev environment for the specified seed."""
+    """Initialized a crossdev environment for the specified seed."""
     arguments = [
         {
             "flags": ["seed"],
@@ -72,8 +96,9 @@ def init_crossdev():
     genTree = GenTree(**kwargs)
     nsexec(genTree.init_crossdev, crossdev_target)
 
+
 def import_seed():
-    """ Imports a seed archive to ~.local/share/genTree/seeds/<name>"""
+    """Imports a seed archive to ~.local/share/genTree/seeds/<name>"""
     arguments = [
         {
             "flags": ["seed"],
@@ -96,7 +121,9 @@ def import_seed():
     ]
 
     kwargs = get_kwargs(
-        package="genTree-import-seed", description="Imports a seed archive to ~/.local/share/genTree/seeds/<name>", arguments=arguments
+        package="genTree-import-seed",
+        description="Imports a seed archive to ~/.local/share/genTree/seeds/<name>",
+        arguments=arguments,
     )
     logger = kwargs.pop("logger")
     seed = Path(kwargs.pop("seed"))
@@ -119,4 +146,3 @@ def import_seed():
             tar.extractall(seed_dir, filter=GenTreeTarFilter(logger=logger, dev=True))
 
     logger.info(f"[{name}] Seed imported: {seed_dir}")
-

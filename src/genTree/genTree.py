@@ -312,6 +312,7 @@ class GenTree(MountMixins, OCIMixins):
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
         self.bind_mount(self.config.pkgdir, self.config.sysroot / "var/cache/binpkgs", readonly=False)
+        self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)
         self.bind_mount(self.config.build_dir, self.config.build_mount, recursive=True, readonly=False)
         self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)
         self.logger.info(" -/~ Chrooting into: %s", colorize(self.config.sysroot, "red"))
@@ -320,6 +321,7 @@ class GenTree(MountMixins, OCIMixins):
 
     def update_seed(self):
         """Updates the seed overlay"""
+        self.config.clean_seed = False
         self.config.no_seed_overlay = True
         self.init_namespace()
         self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
@@ -331,7 +333,7 @@ class GenTree(MountMixins, OCIMixins):
         Emerge the crossdev package on a clean, updated seed
         """
         self.config.clean_seed = False
-        self.config.seed_update = True
+        self.config.no_seed_overlay = True
         self.config.env["features"] = "-usersandbox"
         self.init_namespace()
         self.run_emerge(["--usepkg=y", "--noreplace", "crossdev", "eselect-repository"])

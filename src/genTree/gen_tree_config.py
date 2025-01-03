@@ -56,6 +56,8 @@ CHILD_RESTRICTED = [
     "_pkgdir",
     "config_dir",
     "_config_dir",
+    "distfile_dir",
+    "_distfile_dir",
     "conf_root",
     "output_file",
     "refilter",
@@ -90,6 +92,7 @@ class GenTreeConfig:
     _build_dir: Path = None  # Directory where builds are performed and stored
     _config_dir: Path = None  # Directory where config overlays are stored
     _pkgdir: Path = None  # Directory where packages are stored
+    _distfile_dir: Path = None  # Directory where distfiles are stored
     output_file: Path = None  # Override the output file for the final archive
     # Profiles can be set in any config and are applied before the emerge
     profile: str = None  # The portage profile to use
@@ -151,6 +154,13 @@ class GenTreeConfig:
             return self._config_dir.expanduser().resolve()
         else:
             return self.on_conf_root("config")
+
+    @property
+    def distfile_dir(self):
+        if self._distfile_dir:
+            return self._distfile_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("distfiles")
 
     @property
     def crossdev_repo_dir(self):
@@ -250,12 +260,22 @@ class GenTreeConfig:
     def emerge_flags(self):
         return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
 
+    def get_default(self, attr, *subattrs, default=None):
+        """Gets defaults set in the DEFAULT_CONFIG, first using overrides for the seed
+        then using global defaults.
+        Additioanal args are used to get sub-elements in dictionaries"""
+        val = DEFAULT_CONFIG.get(self.seed, {}).get(attr) or DEFAULT_CONFIG.get(attr)
+        if subattrs:
+            for subattr in subattrs:
+                val = val.get(subattr, {})
+        return val or default
+
     def __getattribute__(self, attr):
         """Try to get the attribute normally, if it's None, try the default config"""
         val = super().__getattribute__(attr)
         if val is None and attr not in NO_DEFAULT_LOOKUP and not attr.startswith("_"):
             self.logger.debug("Getting default value for %s", attr)
-            return DEFAULT_CONFIG.get(attr)
+            return self.get_default(attr)
         return val
 
     @handle_plural
@@ -279,7 +299,7 @@ class GenTreeConfig:
         """Inherits config from the parent object"""
         self.logger.log(5, "Inheriting config from parent: %s", self.parent)
         for attr in INHERITED_CONFIG:
-            parent_val = getattr(self.parent, attr, DEFAULT_CONFIG.get(attr))
+            parent_val = getattr(self.parent, attr, self.get_default(attr))
             self.logger.debug("Inheriting attribute: %s=%s", attr, parent_val)
             setattr(self, attr, parent_val)
         if self.inherit_config:
@@ -338,13 +358,16 @@ class GenTreeConfig:
     def inherit_defaults(self):
         """Load inherited defaults for the top level config"""
         for attr in INHERITED_CONFIG:
-            if val := DEFAULT_CONFIG.get(attr):
+            if val := self.get_default(attr):
                 self.logger.debug("Inheriting default config value: %s=%s", attr, val)
                 setattr(self, attr, val)
 
     @handle_plural
     def load_defaults(self, argname):
-        default = deepcopy(DEFAULT_CONFIG.get(argname, {}))
+        if default := self.get_default(argname):
+            default = deepcopy(default)
+        else:
+            default = {}
         setattr(self, argname, default | self.config.get(argname, {}))
 
     def load_env(self):
@@ -360,13 +383,15 @@ class GenTreeConfig:
         if parent_features := getattr(self.parent, "env", {}).get("features", set()):
             self.env["features"] = parent_features | PortageFlags(conf_features)
         elif self.inherit_features:
-            self.env["features"] = PortageFlags(DEFAULT_CONFIG["env"]["features"]) | PortageFlags(conf_features)
+            self.env["features"] = PortageFlags(self.get_default("env", "features", default="")) | PortageFlags(
+                conf_features
+            )
 
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
             if env_value := self.config.get("env", {}).get(env, parent_value):
                 self.env[env] = env_value
-            elif (default := DEFAULT_CONFIG["env"].get(env, "")) and self.inherit_env:
+            elif (default := self.get_default("env", env)) and self.inherit_env:
                 self.logger.debug("Using default value for %s: %s", env, default)
                 self.env[env] = default
 

@@ -316,7 +316,7 @@ class GenTree(MountMixins, OCIMixins):
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
-        self.bind_mount(self.config.pkgdir, self.config.sysroot / "var/cache/binpkgs", readonly=False)
+        self.bind_mount(self.config.pkgdir, self.config.pkgdir_target, readonly=False)
         self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)
         self.bind_mount(self.config.build_dir, self.config.build_mount, recursive=True, readonly=False)
         self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)

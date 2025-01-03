@@ -20,6 +20,15 @@ ex. `genTree-import-seed stage3.tar.xz stage3-openrc .`
 
 ex. `genTree nginx.toml`
 
+### Updating seeds
+
+Seeds can be updated with `genTree-update-seed <seed name> [alternate update arg string]`.
+
+ex. `genTree-update-seed stage3-openrc`
+
+> By default, "--jobs 4 --update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world" is used.
+> The update string can be defined with `seed_update_args` in the default config.
+
 ### Removing builds
 
 To remove old build tarballs, use `genTree-clean-builds`.

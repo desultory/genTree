@@ -19,7 +19,8 @@ for config in [
     Path(__file__).parent / "default.toml",
     Path("/etc/genTree/config.toml"),
     Path("~/.config/genTree/config.toml").expanduser(),
-]:
+]:  # For "default configs", top-level attributes overwrite previous ones
+    # User supplied config is merged over the final DEFAULT_CONFIG
     if config.exists():
         with open(config, "rb") as f:
             config = load(f)

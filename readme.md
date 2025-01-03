@@ -6,7 +6,15 @@ genTree-server serves the package cache and can be used to queue new builds usin
 
 ## Usage
 
-`genTree-import-seed <system root> <seed name> [conf_root]`
+`genTree <config file> [--debug, -d]`
+
+ex. `genTree nginx.toml`
+
+### Importing seeds
+
+A seed must be imported before genTree can be used, whis is done with `genTree-import-seed`:
+
+> `genTree-import-seed <system root> <seed name> [conf_root]
 
 * `system root` - The system root to import, can be a stage3 tarball or a directory.
 * `seed name` - The seed name to use.
@@ -15,10 +23,6 @@ genTree-server serves the package cache and can be used to queue new builds usin
 > The `conf_root` is `~/.local/share/genTree` by default
 
 ex. `genTree-import-seed stage3.tar.xz stage3-openrc .`
-
-`genTree <config file> [--debug, -d]`
-
-ex. `genTree nginx.toml`
 
 ### Updating seeds
 
@@ -29,11 +33,29 @@ ex. `genTree-update-seed stage3-openrc`
 > By default, "--jobs 4 --update --deep --newuse --changed-use --with-bdeps=y --usepkg=y @world" is used.
 > The update string can be defined with `seed_update_args` in the default config.
 
+### Executing commands in a seed
+
+Commands can be execued in a seed using `genTree-exec <seed name> <command>`.
+
+By default, this will execute the command in an overlay, so it only persists in the upper dir.
+
+`--persistent` can be used to execute the command directly in the seed root.
+
+### Adding crossdev support
+
+Crossdev support can be added to a seed with `genTree-init-crossdev <seed name> <target-tuple>`.
+
+ex. `genTree-init-crossdev stage3-openrc aarch64-unknown-linux-gnu`
+
+> The target tuple must be a valid crossdev target.
+
 ### Removing builds
 
 To remove old build tarballs, use `genTree-clean-builds`.
 
 `~/.local/share/genTree/builds/` is use by default, but an alternate build dir can be passed with the first arg.
+
+> This is equivalent to `rm ~/.local/share/genTree/builds/*.tar`
 
 ## Server usage
 

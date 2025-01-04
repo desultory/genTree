@@ -87,6 +87,7 @@ class GenTree(MountMixins, OCIMixins):
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
                 tar.extractall(dest, filter=config.whiteout_filter)
+            base.logger.debug("[%s] Extracted base: %s", config.name, base.layer_archive)
         except ReadError as e:
             raise RuntimeError(f"[{base.name}] Failed to extract base layer: {base.layer_archive}") from e
 
@@ -123,9 +124,16 @@ class GenTree(MountMixins, OCIMixins):
             colorize(emerge_cmd, "magenta", bright=True, bold=True) if emerge_cmd != "emerge" else "emerge",
             " ".join(map(str, args)),
         )
+        # Open the emerge log, get the current last line so it can be seeked past in the event of build failures
+        emerge_log = Path("/var/log/emerge.log")
+        log_end = emerge_log.stat().st_size
         ret = run([emerge_cmd, *args])
+
         if ret.returncode:
             self.logger.error("Emerge info:\n" + run(["emerge", "--info"], capture_output=True).stdout.decode())
+            with open(emerge_log, "r") as log:
+                log.seek(log_end)
+                self.logger.error("Emerge log:\n" + log.read())
             raise RuntimeError(f"Failed to run: emerge {args}")
 
         return ret
@@ -316,7 +324,7 @@ class GenTree(MountMixins, OCIMixins):
         self.mount_system_dirs()
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
-        self.bind_mount(self.config.pkgdir, self.config.pkgdir_target, readonly=False)
+        self.bind_mount(self.config.pkgdir, self.config.pkgdir_mount, readonly=False)
         self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)
         self.bind_mount(self.config.build_dir, self.config.build_mount, recursive=True, readonly=False)
         self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)

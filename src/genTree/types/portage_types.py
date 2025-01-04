@@ -82,7 +82,10 @@ class PortageFlags(set):
         if item.startswith("+"):
             item = item[1:]
 
-        super().remove(item)
+        try:
+            super().remove(item)
+        except KeyError:  # Nothing to remove, add the negative variant
+            self.add(f"-{item}")
 
     def __or__(self, other):
         for item in other:

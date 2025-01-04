@@ -147,8 +147,12 @@ def init_crossdev():
     )
     crossdev_target = kwargs.pop("crossdev_target")  # Don't set this, it is set after the crossdev chains is built
     kwargs["bases"] = [kwargs.pop("base")]  # Set the base
+    kwargs["clean_seed"] = True  # Clean temporary seed dirs
+    kwargs["no_seed_overlay"] = True  # Write to the seed, not an overlay
     genTree = GenTree(**kwargs)
     nsexec(genTree.init_crossdev, crossdev_target)
+    genTree.config.crossdev_target = crossdev_target  # Set the crossdev target so it's used when building
+    nsexec(genTree.stage_crossdev, crossdev_target)
 
 
 def import_seed():

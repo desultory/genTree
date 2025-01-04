@@ -126,6 +126,7 @@ class GenTree(MountMixins, OCIMixins):
         )
         # Open the emerge log, get the current last line so it can be seeked past in the event of build failures
         emerge_log = Path("/var/log/emerge.log")
+        emerge_log.touch()
         log_end = emerge_log.stat().st_size
         ret = run([emerge_cmd, *args])
 
@@ -353,9 +354,7 @@ class GenTree(MountMixins, OCIMixins):
         """Creates a crossdev toolchain given a chain tuple
         Emerge the crossdev package on a clean, updated seed
         """
-        self.config.clean_seed = False
-        self.config.no_seed_overlay = True
-        self.config.env["features"] = "-usersandbox"
+        self.config.env["features"].remove("usersandbox")
         self.init_namespace()
         self.run_emerge(["--usepkg=y", "--noreplace", "crossdev", "eselect-repository"])
         try:
@@ -368,6 +367,23 @@ class GenTree(MountMixins, OCIMixins):
         except CalledProcessError as e:
             self.logger.error("Failed to run crossdev: %s", e.stderr.decode())
             raise RuntimeError("Failed to create crossdev toolchain") from e
+
+    def stage_crossdev(self, chain):
+        """ Stages the crossdev environment,
+        Sets a profile and emerges base packages such as glibc.
+        """
+        self.init_namespace()
+        def emerge_bases(config):
+            if config.bases:
+                for base in config.bases:
+                    emerge_bases(base)
+            config.crossdev_target = chain  # Force using crossdev
+            config.emerge_bools["oneshot"] = True
+            if not config.packages:
+                return  # Don't do anyhting if packaegs aren't defined
+            self.run_emerge(config.emerge_flags[2:], config=config)
+        emerge_bases(self.config)
+
 
     def build_tree(self):
         """Builds the tree in a namespaced chroot environment.

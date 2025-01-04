@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import field
 from os import environ
 from pathlib import Path
 from subprocess import SubprocessError, run
@@ -34,7 +35,7 @@ for config in [
 
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
-NO_DEFAULT_LOOKUP = ["name", "config_file", "parent", "bases", "whiteouts", "opaques"]
+NO_DEFAULT_LOOKUP = ["name", "config_file", "parent", "bases", "whiteouts", "opaques", "packages", "unmerge"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format", "common_flags"]
@@ -85,7 +86,7 @@ class GenTreeConfig:
     config_file: Path = None  # Path to the config file
     config: dict = None  # The internal config dictionary
     parent: Optional["GenTreeConfig"] = None  # Parent config object
-    bases: list = None  # List of base layer configs, set in parent when a child is added
+    bases: list = field(default_factory=list)  # List of base layer configs, set in parent when a child is added
     inherit_env: bool = True  # Inherit default environment variables from the parent
     inherit_features: bool = True  # Inherit default features from the parent
     inherit_use: bool = False  # Inherit USE flags from the parent
@@ -261,7 +262,11 @@ class GenTreeConfig:
 
     @property
     def file_display_name(self):
-        if self.config_file.is_relative_to(Path(__file__).parent):
+        if not self.config_file:
+            if self.crossdev_target:
+                return self.crossdev_target
+            return self.seed
+        elif self.config_file.is_relative_to(Path(__file__).parent):
             return self.config_file.name
         return self.config_file
 
@@ -313,8 +318,11 @@ class GenTreeConfig:
 
     def __getattribute__(self, attr):
         """Try to get the attribute normally, if it's None, try the default config"""
+        if attr.startswith("_") or attr in NO_DEFAULT_LOOKUP:
+            return super().__getattribute__(attr)
+
         val = super().__getattribute__(attr)
-        if val is None and attr not in NO_DEFAULT_LOOKUP and not attr.startswith("_"):
+        if val is None:
             if attr == "seed":
                 return DEFAULT_CONFIG.get("seed")  # Seed is used in a lookup in get_default
             self.logger.debug("Getting default value for %s", attr)
@@ -341,6 +349,9 @@ class GenTreeConfig:
             self.config = {}
             self.name = self.name or self.seed
             self.load_standard_config()
+            bases = self.bases
+            self.bases = []
+            self.add_base(bases)
 
     def inherit_parent(self):
         """Inherits config from the parent object"""
@@ -395,9 +406,10 @@ class GenTreeConfig:
                 continue  # Don't set these attributes directly
             setattr(self, key, value)
 
+        add_bases = self.bases or []
+        add_bases.extend(self.config.get("bases", []))
         self.bases = []
-        for base in self.config.get("bases", []):
-            self.add_base(base)
+        self.add_base(add_bases)
 
         self.whiteouts = self.config.get("whiteouts", set())
         self.opaques = self.config.get("opaques", set())

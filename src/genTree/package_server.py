@@ -28,6 +28,7 @@ class GenTreeWeb:
         self.app.on_startup.append(self.app_tasks)
         self.app.router.add_get("/pkg", self.add_package)
         self.app.router.add_get("/queue", self.get_queue)
+        self.genTree.config.check_dir("pkgdir")  # Make sure the package directory exists
         self.app.router.add_static("/", path=self.genTree.config.pkgdir)
 
     async def get_queue(self, request):

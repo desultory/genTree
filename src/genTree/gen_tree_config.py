@@ -318,7 +318,11 @@ class GenTreeConfig:
             if attr == "seed":
                 return DEFAULT_CONFIG.get("seed")  # Seed is used in a lookup in get_default
             self.logger.debug("Getting default value for %s", attr)
-            return self.get_default(attr)
+            default = self.get_default(attr)
+            if default is not None:
+                return default
+            self.logger.debug("No default value found for %s", attr)
+            NO_DEFAULT_LOOKUP.append(attr)
         return val
 
     @handle_plural

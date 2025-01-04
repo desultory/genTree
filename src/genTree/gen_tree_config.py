@@ -35,19 +35,31 @@ for config in [
 
 
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
-NO_DEFAULT_LOOKUP = ["name", "config_file", "parent", "bases", "whiteouts", "opaques", "packages", "unmerge"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format", "common_flags"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 
+NO_DEFAULT_LOOKUP = [
+    "name",  # Should be unique to each config
+    "config_file",  # ''
+    "parent",  # Only inherited
+    "bases",  # No sense in this being a default
+    "whiteouts",  # unique filters can be set
+    "opaques",  # ''
+    "packages",  # Should be unique per tree, no sense in a default
+    "unmerge",  # ''
+]
+
 INHERITED_CONFIG = [
-    "seed",
-    "crossdev_target",
-    "clean_build",
-    "rebuild",
-    "profile",
-    "profile_repo",
+    "seed",  # Must be set in the top level config, cannot be set in a child
+    "crossdev_target",  # ''
+    "build_tag",  # ''
+    "package_tag",  # ''
+    "clean_build",  # Makes sense to inherit, but overrides can be set in a child
+    "rebuild",  # ''
+    "profile",  # ''
+    "profile_repo",  # ''
 ]
 
 CHILD_RESTRICTED = [
@@ -66,6 +78,9 @@ CHILD_RESTRICTED = [
     "conf_root",
     "output_file",
     "refilter",
+    "_buildname",
+    "build_tag",
+    "package_tag",
 ]
 
 
@@ -83,6 +98,8 @@ class GenTreeConfig:
     name: str = None  # The name of the config layer
     seed: str = None  # Seed name, can only and must be set in the top level config
     no_seed_overlay: bool = False  # Do not use a seed overlay, used for updates/upgrades
+    _buildname: str = None  # Custom build name to use
+    build_tag: str = None  # Tag name to use for the build
     config_file: Path = None  # Path to the config file
     config: dict = None  # The internal config dictionary
     parent: Optional["GenTreeConfig"] = None  # Parent config object
@@ -99,6 +116,7 @@ class GenTreeConfig:
     _pkgdir: Path = None  # Directory where packages are stored
     _distfile_dir: Path = None  # Directory where distfiles are stored
     output_file: Path = None  # Override the output file for the final archive
+    package_tag: str = None  # Tag to use for the package directory, uses the build_tag if not set
     # Profiles can be set in any config and are applied before the emerge
     profile: str = None  # The portage profile to use
     profile_repo: str = "gentoo"
@@ -139,10 +157,14 @@ class GenTreeConfig:
     def pkgdir(self):
         if self._pkgdir:
             return self._pkgdir.expanduser().resolve()
-        elif self.crossdev_target:
-            return self.on_conf_root(f"pkgdir_{self.crossdev_target}")
-        else:
-            return self.on_conf_root("pkgdir")
+        pkgdir = "pkgdir"
+        if self.package_tag:
+            pkgdir += f"_{self.package_tag}"
+        elif self.build_tag:
+            pkgdir += f"_{self.build_tag}"
+        if self.crossdev_target:
+            pkgdir += f"_{self.crossdev_target}"
+        return self.on_conf_root(pkgdir)
 
     @property
     def pkgdir_mount(self):
@@ -184,9 +206,15 @@ class GenTreeConfig:
 
     @property
     def buildname(self):
+        if self._buildname:
+            return self._buildname
+        buildname = self.seed
         if self.crossdev_target:
-            return f"{self.seed}-{self.crossdev_target}-{self.name}"
-        return f"{self.seed}-{self.name}"
+            buildname += f"-{self.crossdev_target}"
+        if self.build_tag:
+            buildname += f"-{self.build_tag}"
+        buildname += f"-{self.name}"
+        return buildname
 
     @property
     def overlay_root(self):

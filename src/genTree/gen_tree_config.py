@@ -261,7 +261,11 @@ class GenTreeConfig:
 
     @property
     def file_display_name(self):
-        if self.config_file.is_relative_to(Path(__file__).parent):
+        if not self.config_file:
+            if self.crossdev_target:
+                return self.crossdev_target
+            return self.seed
+        elif self.config_file.is_relative_to(Path(__file__).parent):
             return self.config_file.name
         return self.config_file
 
@@ -335,12 +339,16 @@ class GenTreeConfig:
     def __post_init__(self, *args, **kwargs):
         self.process_kwargs(kwargs)
         config_file = self.config_file or kwargs.get("config_file")
+        self.bases = self.bases or []
         if config_file:
             self.load_config(config_file)
         else:
             self.config = {}
             self.name = self.name or self.seed
             self.load_standard_config()
+            bases = self.bases
+            self.bases = []
+            self.add_base(bases)
 
     def inherit_parent(self):
         """Inherits config from the parent object"""
@@ -395,9 +403,10 @@ class GenTreeConfig:
                 continue  # Don't set these attributes directly
             setattr(self, key, value)
 
+        add_bases = self.bases or []
+        add_bases.extend(self.config.get("bases", []))
         self.bases = []
-        for base in self.config.get("bases", []):
-            self.add_base(base)
+        self.add_base(add_bases)
 
         self.whiteouts = self.config.get("whiteouts", set())
         self.opaques = self.config.get("opaques", set())

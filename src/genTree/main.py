@@ -106,6 +106,11 @@ def update_seed():
             "action": "store",
         },
         {
+            "flags": ["--crossdev-target"],
+            "help": "Crossdev target to use.",
+            "action": "store",
+        },
+        {
             "flags": ["seed_update_args"],
             "help": "Argument string to pass to the update function.",
             "action": "store",

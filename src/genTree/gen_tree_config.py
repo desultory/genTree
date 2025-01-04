@@ -295,10 +295,17 @@ class GenTreeConfig:
         return profles.stdout.decode()
 
     def get_default(self, attr, *subattrs, default=None):
-        """Gets defaults set in the DEFAULT_CONFIG, first using overrides for the seed
-        then using global defaults.
-        Additioanal args are used to get sub-elements in dictionaries"""
-        val = DEFAULT_CONFIG.get(self.seed, {}).get(attr) or DEFAULT_CONFIG.get(attr)
+        """Gets defaults set in the DEFAULT_CONFIG.
+        Prioritze config from defualt.seed.attr
+        first using overrides for the seed, then using global defaults.
+        Additioanal args are used to get sub-elements in dictionaries
+        A default arg, used when no value was found, can be set with the 'default' kwarg
+        """
+        val = None
+        if seed_overrides := DEFAULT_CONFIG.get("default", {}).get(self.seed):
+            val = seed_overrides.get(attr)  # Get the seed override if it exists
+        val = val or DEFAULT_CONFIG.get(attr)  # Get the default value if no seed override is set
+
         if subattrs:
             for subattr in subattrs:
                 val = val.get(subattr, {})

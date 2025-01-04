@@ -299,7 +299,7 @@ class GenTree(MountMixins, OCIMixins):
 
     def clean_seed_overlay(self):
         """Cleans the seed upper and work dirs"""
-        for root in ["upper", "work"]:
+        for root in ["upper", "work", "temp"]:
             seed_root = Path(getattr(self.config, f"{root}_seed_root"))
             if seed_root.exists():
                 self.logger.info(" --- Cleaning seed root: %s", colorize(seed_root, "red"))
@@ -315,6 +315,8 @@ class GenTree(MountMixins, OCIMixins):
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
         if self.config.clean_seed:
             self.clean_seed_overlay()
+        else:
+            self.logger.debug("Seed overlay cleaning disabled")
 
         if not self.config.no_seed_overlay:
             self.mount_seed_overlay()  # Don't use an overly if not needed
@@ -340,8 +342,8 @@ class GenTree(MountMixins, OCIMixins):
 
     def update_seed(self):
         """Updates the seed overlay"""
-        self.config.clean_seed = False
-        self.config.no_seed_overlay = True
+        self.config.clean_seed = True  # Clean the seed upper/work dirs
+        self.config.no_seed_overlay = True  # Don't use an overlay, work on the seed
         self.init_namespace()
         self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
         self.run_emerge(split(self.config.seed_update_args))

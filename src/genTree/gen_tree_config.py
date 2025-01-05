@@ -482,14 +482,10 @@ class GenTreeConfig:
                 def_val = self.get_default("crossdev_env", attr, default=def_val)
             if env := self.config.get("crossdev_env"):
                 val = env.get(attr) or val if self.crossdev_use_env else None  # Set the crossdev env if it exists
-        self.logger.debug("Value for %s: %s", attr, val)
         return val or def_val
 
     def inherit_parent_env(self):
-        """Inherit environment variables from the parent config"""
-        if self.parent is None:
-            return self.logger.debug("No parent to inherit from")
-
+        """Inherit environment variables from the parent config, or use the default value"""
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
             if env_value := self.get_env(env, default=parent_value):

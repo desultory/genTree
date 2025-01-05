@@ -29,6 +29,11 @@ def main():
             "help": "The profile to use.",
             "action": "store",
         },
+        {
+            "flags": ["--build-tag"],
+            "help": "The build tag to use.",
+            "action": "store",
+        },
     ]
 
     kwargs = get_kwargs(

@@ -43,9 +43,10 @@ ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 NO_DEFAULT_LOOKUP = [
     "name",  # Should be unique to each config
     "config_file",  # ''
+    "build_tag",  # Used as a config lookup/identifier, cannot be set as a default
     "parent",  # Only inherited
     "bases",  # No sense in this being a default
-    "whiteouts",  # unique filters can be set
+    "whiteouts",  # Handled by filters
     "opaques",  # ''
     "packages",  # Should be unique per tree, no sense in a default
     "unmerge",  # ''
@@ -212,10 +213,10 @@ class GenTreeConfig:
         if self._buildname:
             return self._buildname
         buildname = self.seed
-        if self.crossdev_target:
-            buildname += f"-{self.crossdev_target}"
         if self.build_tag:
             buildname += f"-{self.build_tag}"
+        if self.crossdev_target:
+            buildname += f"-{self.crossdev_target}"
         buildname += f"-{self.name}"
         return buildname
 
@@ -332,14 +333,19 @@ class GenTreeConfig:
 
     def get_default(self, attr, *subattrs, default=None):
         """Gets defaults set in the DEFAULT_CONFIG.
-        Prioritze config from defualt.seed.attr
-        first using overrides for the seed, then using global defaults.
+        Prioritze config from:
+            defualt.seed.build_tag.attr
+            default.seed.attr
+            default.attr
         Additioanal args are used to get sub-elements in dictionaries
         A default arg, used when no value was found, can be set with the 'default' kwarg
         """
         val = None
         if seed_overrides := DEFAULT_CONFIG.get("default", {}).get(self.seed):
-            val = seed_overrides.get(attr)  # Get the seed override if it exists
+            if build_overrides := seed_overrides.get(self.build_tag):
+                val = build_overrides.get(attr)  # Get the build tag override if it exists
+            if val is None:  # Try to get the seed override if no build tag override is set
+                val = seed_overrides.get(attr)  # Get the seed override if it exists
         val = val or DEFAULT_CONFIG.get(attr)  # Get the default value if no seed override is set
 
         if subattrs:

@@ -20,7 +20,7 @@ for config in [
     Path(__file__).parent / "default.toml",
     Path("/etc/genTree/config.toml"),
     Path("~/.config/genTree/config.toml").expanduser(),
-]:  # For "default configs", top-level attributes overwrite previous ones
+]:  # For "default configs", later-parsed attributes overwrite previous ones
     # User supplied config is merged over the final DEFAULT_CONFIG
     if config.exists():
         with open(config, "rb") as f:
@@ -57,6 +57,7 @@ INHERITED_CONFIG = [
     "build_tag",  # ''
     "package_tag",  # ''
     "clean_build",  # Makes sense to inherit, but overrides can be set in a child
+    "crossdev_use_env",  # ''
     "rebuild",  # ''
     "profile",  # ''
     "profile_repo",  # ''
@@ -136,6 +137,8 @@ class GenTreeConfig:
     # Crossdev stuff
     crossdev_target: str = None  # Crossdev target tuple
     crossdev_profile: str = None  # Profile override to use for crossdev
+    crossdev_use_env: bool = False  # Use common/compiler flags from the env for crossdev
+    crossdev_env: dict = None  # Environment variables to set for crossdev
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
@@ -402,8 +405,18 @@ class GenTreeConfig:
             setattr(self, key, value)
 
     def load_standard_config(self):
-        self.load_defaults(DEF_ARGS)  # load defaults from the package __init__
+        self.load_defaults(DEF_ARGS)  # load defaults
         self.load_env()
+
+    @handle_plural
+    def load_defaults(self, argname):
+        """ Loads default values from the config file
+        Uses this value if no value is set in the config"""
+        if default := self.get_default(argname):
+            default = deepcopy(default)
+        else:
+            default = {}
+        setattr(self, argname, default | self.config.get(argname, {}))
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
@@ -430,7 +443,7 @@ class GenTreeConfig:
 
         self.load_standard_config()
         for key, value in self.config.items():
-            if key in ["name", "logger", "env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
+            if key in ["name", "logger", "env", "crossdev_env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
                 continue  # Don't set these attributes directly
             setattr(self, key, value)
 
@@ -449,41 +462,53 @@ class GenTreeConfig:
                 self.logger.debug("Inheriting default config value: %s=%s", attr, val)
                 setattr(self, attr, val)
 
-    @handle_plural
-    def load_defaults(self, argname):
-        if default := self.get_default(argname):
-            default = deepcopy(default)
-        else:
-            default = {}
-        setattr(self, argname, default | self.config.get(argname, {}))
+    def get_env(self, attr, default=None):
+        """Gets an environment variable from the config.
+        Uses the main env dict, or crossdev_env if a crossdev target is set
+        If a crossdev target is set, and crossdev_use_env is False, don't use the standard value
+        """
+        val = self.config.get("env", {}).get(attr)
+        def_val = self.get_default("env", attr, default=default)
+        if self.crossdev_target:
+            if not self.crossdev_use_env and attr in ENV_VAR_INHERITED:
+                def_val = self.get_default("crossdev_env", attr, default=default)
+            else:  # Allow using the standard env if crossdev_use_env is set
+                def_val = self.get_default("crossdev_env", attr, default=def_val)
+            if env := self.config.get("crossdev_env"):
+                val = env.get(attr) or val if self.crossdev_use_env else None  # Set the crossdev env if it exists
+        self.logger.debug("Value for %s: %s", attr, val)
+        return val or def_val
 
-    def load_env(self):
-        """Loads environment variables from the config.
-        Features are always inherited.
-        USE flags are inherited if inherit_use is set"""
-
-        use = PortageFlags(self.config.get("env", {}).get("use", ""))
-        if self.inherit_use:
-            use |= self.parent.env["use"]
-        self.env = {"use": use}
-        conf_features = self.config.get("env", {}).get("features", "")
-        if parent_features := getattr(self.parent, "env", {}).get("features", set()):
-            self.env["features"] = parent_features | PortageFlags(conf_features)
-        elif self.inherit_features:
-            self.env["features"] = PortageFlags(self.get_default("env", "features", default="")) | PortageFlags(
-                conf_features
-            )
+    def inherit_parent_env(self):
+        """Inherit environment variables from the parent config"""
+        if self.parent is None:
+            return self.logger.debug("No parent to inherit from")
 
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
-            if env_value := self.config.get("env", {}).get(env, parent_value):
+            if env_value := self.get_env(env, default=parent_value):
                 self.env[env] = env_value
             elif (default := self.get_default("env", env)) and self.inherit_env:
                 self.logger.debug("Using default value for %s: %s", env, default)
                 self.env[env] = default
 
+    def load_env(self):
+        """Loads environment variables from the config.
+        Features are inherited by default
+        USE flags are inherited if inherit_use is set"""
+        use = PortageFlags(self.get_env("use", default=""))
+        if (parent := self.parent) and self.inherit_use:
+            use |= parent.env["use"]
+        self.env = {"use": use}
+
+        features = PortageFlags(self.get_env("features", default=""))
+        if (parent := self.parent) and self.inherit_features:
+            features |= PortageFlags(parent.env["features"])
+        self.env["features"] = features
+        self.inherit_parent_env()
+
         # Process common flags, pop common_flags from the env dict, apply to each type
-        if common_flags := self.env.pop("common_flags", ""):
+        if common_flags := self.get_env("common_flags"):
             for flag in COMMON_FLAGS:
                 if flag not in self.env:
                     self.env[flag] = common_flags
@@ -539,15 +564,8 @@ class GenTreeConfig:
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
-        set_vars = ENV_VARS
-        if self.crossdev_target:  # Dont't set
-            remove_flags = COMMON_FLAGS + CPU_FLAG_VARS + ["common_flags"]
-            for flag in remove_flags:
-                if flag in set_vars:
-                    self.logger.debug("Removing flag for crossdev: %s", flag)
-                    set_vars.remove(flag)
         for env in ENV_VARS:
-            env_value = getattr(self, "env", {}).get(env)
+            env_value = self.env.get(env)
             env = env.upper()
             if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
                 if env in environ:

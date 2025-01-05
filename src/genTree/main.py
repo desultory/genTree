@@ -20,13 +20,18 @@ def main():
             "default": "config.toml",
         },
         {
-            "flags": ["--crossdev-target"],
+            "flags": ["-c", "--crossdev-target"],
             "help": "The crossdev toolchain type.",
             "action": "store",
         },
         {
-            "flags": ["--profile"],
+            "flags": ["-p", "--profile"],
             "help": "The profile to use.",
+            "action": "store",
+        },
+        {
+            "flags": ["-t", "--build-tag"],
+            "help": "The build tag to use.",
             "action": "store",
         },
     ]

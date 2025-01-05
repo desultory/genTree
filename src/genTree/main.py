@@ -7,32 +7,19 @@ from tarfile import TarFile
 from zenlib.namespace import nsexec
 from zenlib.util import get_kwargs
 
+from . import COMMON_ARGS
 from .filters import GenTreeTarFilter
 from .genTree import GenTree
 
 
 def main():
     arguments = [
+        *COMMON_ARGS,
         {
             "flags": ["config_file"],
             "help": "Path to the configuration file.",
             "action": "store",
             "default": "config.toml",
-        },
-        {
-            "flags": ["-c", "--crossdev-target"],
-            "help": "The crossdev toolchain type.",
-            "action": "store",
-        },
-        {
-            "flags": ["-p", "--profile"],
-            "help": "The profile to use.",
-            "action": "store",
-        },
-        {
-            "flags": ["-t", "--build-tag"],
-            "help": "The build tag to use.",
-            "action": "store",
         },
     ]
 
@@ -73,26 +60,26 @@ def clean_builds():
 def execute():
     """Executes a command in a seed"""
     from argparse import REMAINDER
-    arguments = [
-            {
-                "flags": ["seed"],
-                "help": "Name of the seed.",
-                "action": "store",
-            },
-            {
-                "flags": ["--persistent"],
-                "dest": "no_seed_overlay",
-                "help": "Write to the seed, not an overlay.",
-                "action": "store_true",
-            },
 
-            {
-                "flags": ["command"],
-                "help": "Command to execute.",
-                "action": "store",
-                "nargs": REMAINDER,
-            },
-        ]
+    arguments = [
+        {
+            "flags": ["seed"],
+            "help": "Name of the seed.",
+            "action": "store",
+        },
+        {
+            "flags": ["--persistent"],
+            "dest": "no_seed_overlay",
+            "help": "Write to the seed, not an overlay.",
+            "action": "store_true",
+        },
+        {
+            "flags": ["command"],
+            "help": "Command to execute.",
+            "action": "store",
+            "nargs": REMAINDER,
+        },
+    ]
 
     kwargs = get_kwargs(package="genTree-exec", description="Executes a command in a seed", arguments=arguments)
     # If at the INFO (20) level, set to WARNING (30), if below, leave as is
@@ -102,6 +89,7 @@ def execute():
     genTree = GenTree(**kwargs)
     nsexec(genTree.execute, cmd)
 
+
 def update_seed():
     """Updates a seed"""
     arguments = [
@@ -110,11 +98,7 @@ def update_seed():
             "help": "Name of the seed.",
             "action": "store",
         },
-        {
-            "flags": ["--crossdev-target"],
-            "help": "Crossdev target to use.",
-            "action": "store",
-        },
+        *COMMON_ARGS,
         {
             "flags": ["seed_update_args"],
             "help": "Argument string to pass to the update function.",

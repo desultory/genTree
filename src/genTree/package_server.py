@@ -7,6 +7,7 @@ from zenlib.logging import loggify
 from zenlib.namespace import nsexec
 from zenlib.util import get_kwargs
 
+from . import COMMON_ARGS
 from .genTree import GenTree
 
 
@@ -84,7 +85,8 @@ def main():
     arguments = [
         {"flags": ["seed"], "help": "System seed to use", "action": "store"},
         {"flags": ["-a", "--address"], "help": "IP to listen on", "dest": "listen_ip", "action": "store"},
-        {"flags": ["-p", "--port"], "help": "Port to listen on", "dest": "listen_port", "action": "store"},
+        {"flags": ["--port"], "help": "Port to listen on", "dest": "listen_port", "action": "store"},
+        *COMMON_ARGS,
         {
             "flags": ["--ephemeral-seed"],
             "dest": "ephemeral_seed",

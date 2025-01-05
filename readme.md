@@ -67,7 +67,7 @@ Builds can be added to a queue using `/pkg?pkg=<pkg>` and viewed using `/queue`.
 
 ## Configuration
 
-Example configuration file:
+Example build configuration file:
 
 ```
 # nginx.toml
@@ -127,6 +127,35 @@ The following defaults inheritance can be configured:
 * `crossdev_env` - Environment variables to set for crossdev, same as env.
 
 > The `env` dict is used to set environment variables including INHERITED_CONFIG, ENV_VARS, and DEF_ARGS
+
+```
+# ~/.config/genTree/config.toml
+
+seed = "openrc-hardened"
+profile = "default/linux/amd64/23.0/no-multilib/hardened"
+crossdev_profile = "default/linux/arm64/23.0"
+
+[env]
+cpu_flags_x86 = "aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vpclmulqdq"
+common_flags = "-march=native -flto -O3 -pipe"
+
+[default.openrc-hardened.pi3]
+crossdev_target = "aarch64-unknown-linux-gnu"
+
+[default.openrc-hardened.pi3.crossdev_env]
+common_flags = "-march=armv8-a+crc -mtune=cortex-a53 -flto -O3 -pipe"
+
+[default.openrc-desktop]
+profile = "default/linux/amd64/23.0/desktop"
+
+[default.openrc-desktop-generic]
+package_tag = "generic"
+profile = "default/linux/amd64/23.0/desktop"
+
+[default.openrc-desktop-generic.env]
+common_flags = "-flto -O3 -pipe"
+
+```
 
 ### Bases
 

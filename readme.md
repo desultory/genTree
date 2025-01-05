@@ -35,11 +35,9 @@ ex. `genTree-update-seed stage3-openrc`
 
 ### Executing commands in a seed
 
-Commands can be execued in a seed using `genTree-exec <seed name> <command>`.
+Commands can be execued in a seed using `genTree-exec [--persistent] <seed name> <command>`.
 
-By default, this will execute the command in an overlay, so it only persists in the upper dir.
-
-`--persistent` can be used to execute the command directly in the seed root.
+By default, this will execute the command in an overlay, so it only persists in the upper dir. `--persistent` can be used to execute the command directly in the seed root.
 
 ### Adding crossdev support
 
@@ -61,7 +59,7 @@ To remove old build tarballs, use `genTree-clean-builds`.
 
 genTree can serve binpkgs using `aiohttp` with genTree-server.
 
-`genTree-server <seed name> [--debug, -d] [-a --address <address>] [-p --port <port>]`
+`genTree-server <seed name> [--debug, -d] [-a --address <address>] [--port <port>] [--crossdev-target -c] [--profile -p] [--build-tag -t]`
 
 ex. `genTree-server stage3-openrc -a 0.0.0.0`
 
@@ -100,7 +98,7 @@ locales = true # Filter locales when packing
 * `packages` (list) - The packages to emerge.
 * `unmerge` (list) - The packages to unmerge.
 * `deplean` (false) - Run depclean --with-bdeps=n after emerging.
-* `rebuild` (true) - Force a rebuild of the layer.
+* `rebuild` (false) - Force a rebuild of the layer.
 
 ### Defaults
 
@@ -109,26 +107,26 @@ The default config is set in `<module_path>/defaults.toml`, and is merged with:
 * `/etc/genTree/config.toml`
 * `~/.config/genTree/config.toml`
 
-The following defaults can be set:
+> Values which are set to None will check DEFAULTS for a value.
 
-* `seed`
-* `clean_build`
-* `rebuild`
-* `profile`
-* `crossdev_profile` - Profile which is used when crossdev-target is set
-* `profile_repo`
+The following defaults cannot be set:
+
+* `name` - This must be set per build/layer.
+* `bases` - ''
+* `packages` / `unmerge` - ''
+* `whiteouts` / `opaques` - Handled by filters
+* `config_file` - Doesn't make sense to have a default (for inheriting)
+* `build_tag` - Used for additional override profiles, as a key.
+* `parent` - Set by the parent when adding a base.
+
+The following defaults inheritance can be configured:
 * `env.features` - Toggled with `inherit_features`
 * `env.use` - Toggled with `inherit_use`
-* `env.binpkg_format`
-* `env.cpu_flags_{x86,arm,ppc}`
 * `env.common_flags` - as well as each common flag type, like cflags, cxxflags, etc.
-* `emerge_args`
-* `emerge_bools`
-* `clean_filter_options`
-* `tar_filter_options`
+  - When a `crossdev_target` is set, not used unless `crossdev_use_env` is true.
+* `crossdev_env` - Environment variables to set for crossdev, same as env.
 
-> The `env` dict is used to set environment variables.
-> This is INHERITED_CONFIG, ENV_VARS, and DEF_ARGS
+> The `env` dict is used to set environment variables including INHERITED_CONFIG, ENV_VARS, and DEF_ARGS
 
 ### Bases
 

@@ -247,24 +247,8 @@ class GenTreeConfig:
         return self.seed_dir / f"{self.seed}_sysroot"
 
     @property
-    def upper_seed_root(self):
-        if self.ephemeral_seed:
-            return self.temp_seed_root / "upper"
-        return self.sysroot.with_name(f"{self.seed}_upper")
-
-    @property
     def seed_root(self):
         return self.sysroot.with_name(f"{self.seed}")
-
-    @property
-    def work_seed_root(self):
-        if self.ephemeral_seed:
-            return self.temp_seed_root / "work"
-        return self.sysroot.with_name(f".{self.seed}_work")
-
-    @property
-    def temp_seed_root(self):
-        return self.sysroot.with_name(f".{self.seed}_temp")
 
     @property
     def layer_archive(self):

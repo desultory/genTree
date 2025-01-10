@@ -1,30 +1,11 @@
 from pathlib import Path
+from shutil import rmtree
 from subprocess import CalledProcessError, run
 
 from zenlib.util import colorize
 
 
 class MountMixins:
-    def mount_root_overlay(self, config):
-        """Mounts an overlayfs for the build root"""
-        config.logger.info(
-            " =^= [%s] Mounting build overlay on: %s",
-            colorize(config.name, "blue"),
-            colorize(config.overlay_root, "cyan"),
-        )
-        run(
-            [
-                "mount",
-                "-t",
-                "overlay",
-                "overlay",
-                "-o",
-                f"userxattr,lowerdir={config.lower_root},upperdir={config.upper_root},workdir={config.work_root}",
-                config.overlay_root,
-            ],
-            check=True,
-        )
-
     def mount_config_overlay(self, config):
         """Mounts a config overlay over /etc/portage"""
         if Path("/etc/portage").is_mount():
@@ -74,28 +55,89 @@ class MountMixins:
         if not self.config.seed_root.exists():
             raise FileNotFoundError(f"Seed root not found: {self.config.seed_root}")
 
-        if not self.config.no_seed_overlay:
+        if self.config.no_seed_overlay:
             return self.logger.warning(" !-! Skipping seed overlay creation.")
 
-        if self.config.ephemeral_seed:
-            self.logger.info(" +/~ Mounting tmpfs on: %s", colorize(self.config.temp_seed_root, "yellow"))
-            self.config.check_dir("temp_seed_root")
-            run(["mount", "-t", "tmpfs", "tmpfs", self.config.temp_seed_root], check=True)
-        self.config.check_dir(["upper_seed_root", "work_seed_root", "sysroot"])
+        temp = self.config.ephemeral_seed
+        clean = self.config.clean_seed
 
-        self.logger.info(" ~/* Mounting seed overlay on: %s", colorize(self.config.sysroot, "cyan", bold=True))
-        run(
-            [
-                "mount",
-                "-t",
-                "overlay",
-                "overlay",
-                "-o",
-                f"userxattr,lowerdir={self.config.seed_root},upperdir={self.config.upper_seed_root},workdir={self.config.work_seed_root}",
-                self.config.sysroot,
-            ],
-            check=True,
-        )
+        if clean:
+            self.logger.info(" --- Cleaning seed overlays")
+
+        self.overlay_mount(self.config.sysroot, self.config.seed_root, temp=temp, clean=clean)
+
+    def tmpfs_mount(self, mountpoint: Path, size: int = 0, mode: str = "rw"):
+        """Creates a tmpfs mount at the specified mountpoint with the specified size and mode.
+        If size is 0, the size is unlimited.
+        """
+        mountpoint = Path(mountpoint)
+        if not mountpoint.exists():
+            self.logger.debug("[tmpfs] Creating mountpoint: %s", mountpoint)
+            mountpoint.mkdir(parents=True)
+
+        args = ["mount", "-t", "tmpfs", "tmpfs", mountpoint]
+        if size:
+            args.extend(["-o", f"size={size}"])
+        if mode:
+            args.extend(["-o", mode])
+
+        self.logger.info(" +/~ Mounting tmpfs on: %s", colorize(mountpoint, "yellow"))
+        run(args, check=True)
+
+    def overlay_mount(
+        self,
+        mountpoint: Path,
+        lower: Path,
+        work: Path = None,
+        upper: Path = None,
+        userxattr=True,
+        temp=False,
+        clean=False,
+    ):
+        """Mounts an overlayfs using the specified lower dir and mountpint.
+        If an upper or work directory is not specified, they will be created in the same directory as the lower dir
+        with the names .<lower_name>_upper and .<lower_name>_work respectively.
+
+        If temp is set, creates .<lower_name>_temp, mounts a tmpfs over it, then uses it for the upper and work dirs.
+        if clean is set, the upper and work directories will be cleared before mounting.
+        """
+        mountpoint, lowerdir = Path(mountpoint), Path(lower)
+        if not lowerdir.exists():
+            raise FileNotFoundError(f"Lower directory not found: {lowerdir}")
+        if not mountpoint.exists():
+            self.logger.debug("[overlay] Creating mountpoint: %s", mountpoint)
+            mountpoint.mkdir(parents=True)
+        elif mountpoint.is_mount():
+            self.logger.info(" - - Unmounting overlay on: %s", mountpoint)
+            run(["umount", mountpoint], check=True)
+
+        if temp:
+            tmpdir = lowerdir.with_name(f".{lowerdir.name}_temp")
+            self.tmpfs_mount(tmpdir)
+            upper = tmpdir / "upper"
+            work = tmpdir / "work"
+        else:
+            upper = Path(upper) if upper else lowerdir.with_name(f".{lowerdir.name}_upper")
+            work = Path(work) if work else lowerdir.with_name(f".{lowerdir.name}_work")
+
+        if clean:
+            for d in [upper, work]:
+                if d.exists():
+                    self.logger.debug("[overlay] Cleaning directory: %s", d)
+                    rmtree(d)
+
+        if not upper.exists():
+            self.logger.debug("[overlay] Creating upper directory: %s", upper)
+            upper.mkdir(parents=True)
+        if not work.exists():
+            self.logger.debug("[overlay] Creating work directory: %s", work)
+            work.mkdir(parents=True)
+
+        options = "userxattr," if userxattr else ""
+        options += f"lowerdir={lowerdir},upperdir={upper},workdir={work}"
+        args = ["mount", "-t", "overlay", "overlay", "-o", options, str(mountpoint)]
+        self.logger.info(" ~/* Mounting overlay on: %s", colorize(mountpoint, "cyan", bold=True))
+        run(args, check=True)
 
     def bind_mount(self, source: Path, dest: Path, recursive=False, readonly=True, file=False):
         """Bind mounts a source directory over a destination directory"""

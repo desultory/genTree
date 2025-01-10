@@ -225,10 +225,6 @@ class GenTreeConfig:
         return self.overlay_root.with_name(f".{self.buildname}_lower")
 
     @property
-    def work_root(self):
-        return self.overlay_root.with_name(f".{self.buildname}_work")
-
-    @property
     def upper_root(self):
         return self.overlay_root.with_name(f"{self.buildname}_upper")
 

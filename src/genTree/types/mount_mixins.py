@@ -26,29 +26,10 @@ class MountMixins:
                 raise FileNotFoundError(f"Config overlay directory not found: {config_dir}")
             return config.logger.debug("Config overlay directory not found: %s", config_dir)
 
-        upper_config = Path("/config") / "upper_config"
-        work_config = Path("/config") / "work_config"
-
-        for d in [upper_config, work_config]:
-            if not d.exists():
-                config.logger.debug("Creating directory: %s", d)
-                d.mkdir(parents=True)
-
         config.logger.info(
             " =-= [%s] Mounting config overlay on: %s", colorize(config.name, "green"), colorize(config_dir, "blue")
         )
-        run(
-            [
-                "mount",
-                "-t",
-                "overlay",
-                "overlay",
-                "-o",
-                f"userxattr,lowerdir={config_dir},upperdir={upper_config},workdir={work_config}",
-                "/etc/portage",
-            ],
-            check=True,
-        )
+        self.overlay_mount("/etc/portage", config_dir)
 
     def mount_seed_overlay(self):
         """Mounts an overlayfs on the seed root"""
@@ -60,10 +41,6 @@ class MountMixins:
 
         temp = self.config.ephemeral_seed
         clean = self.config.clean_seed
-
-        if clean:
-            self.logger.info(" --- Cleaning seed overlays")
-
         self.overlay_mount(self.config.sysroot, self.config.seed_root, temp=temp, clean=clean)
 
     def tmpfs_mount(self, mountpoint: Path, size: int = 0, mode: str = "rw"):
@@ -123,7 +100,7 @@ class MountMixins:
         if clean:
             for d in [upper, work]:
                 if d.exists():
-                    self.logger.debug("[overlay] Cleaning directory: %s", d)
+                    self.logger.warning(" --- Cleaning directory: %s", (colorize(d, "yellow")))
                     rmtree(d)
 
         if not upper.exists():

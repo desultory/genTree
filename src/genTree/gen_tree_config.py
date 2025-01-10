@@ -205,10 +205,6 @@ class GenTreeConfig:
             return self.on_conf_root("distfiles")
 
     @property
-    def crossdev_repo_dir(self):
-        return Path("/crossdev_repo")
-
-    @property
     def buildname(self):
         if self._buildname:
             return self._buildname

@@ -325,9 +325,6 @@ class GenTree(MountMixins, OCIMixins):
         except CalledProcessError as e:
             raise RuntimeError("Failed to enable crossdev repository: %s" % e.stderr.decode()) from e
 
-        for file in Path("/var/db/repos/crossdev").rglob("**"):
-            self.logger.critical("Crossdev repo: %s", file)
-
         try:
             run(["crossdev", "--target", chain], check=True)
         except CalledProcessError as e:

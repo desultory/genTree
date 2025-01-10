@@ -77,6 +77,8 @@ CHILD_RESTRICTED = [
     "_config_dir",
     "distfile_dir",
     "_distfile_dir",
+    "repo_dir",
+    "_repo_dir",
     "conf_root",
     "output_file",
     "refilter",
@@ -117,6 +119,7 @@ class GenTreeConfig:
     _config_dir: Path = None  # Directory where config overlays are stored
     _pkgdir: Path = None  # Directory where packages are stored
     _distfile_dir: Path = None  # Directory where distfiles are stored
+    _repo_dir: Path = None  # Directory where user repos are stored
     output_file: Path = None  # Override the output file for the final archive
     package_tag: str = None  # Tag to use for the package directory, uses the build_tag if not set
     # Profiles can be set in any config and are applied before the emerge
@@ -142,6 +145,7 @@ class GenTreeConfig:
     crossdev_env: dict = None  # Environment variables to set for crossdev
     # bind mounts
     bind_system_repos: bool = True  # bind /var/db/repos on the config root
+    user_repo_overlay: bool = True  # Mount an overlay at self.repo_dir over the system repos
     system_repos: Path = "/var/db/repos"
     # Build cleaner
     clean_seed: bool = False  # Cleans the seed directory before chrooting
@@ -203,6 +207,13 @@ class GenTreeConfig:
             return self._distfile_dir.expanduser().resolve()
         else:
             return self.on_conf_root("distfiles")
+
+    @property
+    def repo_dir(self):
+        if self._repo_dir:
+            return self._repo_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("repos")
 
     @property
     def buildname(self):

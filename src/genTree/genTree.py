@@ -286,7 +286,7 @@ class GenTree(MountMixins, OCIMixins):
 
         self.mount_seed_overlay()  # Mount the seed overlay, if no_seed_overlay is False (default)
         self.mount_system_dirs()  # Mount system dirs, such as /sys, /proc, /dev
-        self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
+        self.mount_system_repos() # Mount system repos
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
         self.bind_mount(self.config.pkgdir, self.config.pkgdir_mount, readonly=False)
         self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)

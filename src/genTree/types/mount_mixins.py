@@ -43,6 +43,26 @@ class MountMixins:
         clean = self.config.clean_seed
         self.overlay_mount(self.config.sysroot, self.config.seed_root, temp=temp, clean=clean)
 
+    def mount_system_repos(self):
+        """ Mounts the system repos over var/db/repos in the sysroot.
+        If crossdev is enabled, create an overlay for the crossdev repos.
+        """
+        system_repos = self.config.system_repos
+        if not system_repos.exists():
+            raise FileNotFoundError(f"System repos directory not found: {system_repos}")
+
+        if self.config.crossdev_target or self.config.user_repo_overlay:
+            repos = self.config.repo_dir
+            repo_upper = repos.with_name(f"{repos.name}_upper")
+            repo_work = repos.with_name(f".{repos.name}_work")
+            self.overlay_mount(repos, system_repos, work=repo_work, upper=repo_upper)
+            readonly = False
+        else:
+            repos = self.config.system_repos
+            readonly = True
+
+        self.bind_mount(repos, self.config.sysroot / "var/db/repos", readonly=readonly)
+
     def tmpfs_mount(self, mountpoint: Path, size: int = 0, mode: str = "rw"):
         """Creates a tmpfs mount at the specified mountpoint with the specified size and mode.
         If size is 0, the size is unlimited.
@@ -114,6 +134,7 @@ class MountMixins:
         options = "userxattr," if userxattr else ""
         options += f"lowerdir={lowerdir},upperdir={upper},workdir={work}"
         args = ["mount", "-t", "overlay", "overlay", "-o", options, str(mountpoint)]
+        self.logger.debug("[overlay] Using options: %s", options)
         if log:
             self.logger.info(" ~/* Mounting overlay on: %s", colorize(mountpoint, "cyan", bold=True))
         run(args, check=True)

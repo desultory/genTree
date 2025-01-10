@@ -37,7 +37,7 @@ for config in [
 DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
-ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format", "common_flags"]
+ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format"]
 ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
 
 NO_DEFAULT_LOOKUP = [
@@ -462,7 +462,7 @@ class GenTreeConfig:
         val = self.config.get("env", {}).get(attr)
         def_val = self.get_default("env", attr, default=default)
         if self.crossdev_target:
-            if not self.crossdev_use_env and attr in ENV_VAR_INHERITED:
+            if not self.crossdev_use_env and attr in [*ENV_VAR_INHERITED, "common_flags"]:
                 def_val = self.get_default("crossdev_env", attr, default=default)
             else:  # Allow using the standard env if crossdev_use_env is set
                 def_val = self.get_default("crossdev_env", attr, default=def_val)

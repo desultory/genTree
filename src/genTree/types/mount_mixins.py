@@ -43,23 +43,19 @@ class MountMixins:
         clean = self.config.clean_seed
         self.overlay_mount(self.config.sysroot, self.config.seed_root, temp=temp, clean=clean)
 
-    def mount_system_repos(self):
-        """ Mounts the system repos over var/db/repos in the sysroot.
-        If crossdev is enabled, create an overlay for the crossdev repos.
+    def mount_repos(self):
+        """ Mounts the system repos over var/db/repos in the sysroot if bind_system_repos is enabled.
+        otherwise, mounts the user repo overlay or crossdev target over var/db/repos in the sysroot.
         """
-        system_repos = self.config.system_repos
-        if not system_repos.exists():
-            raise FileNotFoundError(f"System repos directory not found: {system_repos}")
+        repos = self.config.system_repos if self.config.bind_system_repos else self.config.repo_dir
+        readonly = True if self.config.bind_system_repos else False
 
-        if self.config.crossdev_target or self.config.user_repo_overlay:
-            repos = self.config.repo_dir
-            repo_upper = repos.with_name(f"{repos.name}_upper")
-            repo_work = repos.with_name(f".{repos.name}_work")
-            self.overlay_mount(repos, system_repos, work=repo_work, upper=repo_upper)
-            readonly = False
-        else:
-            repos = self.config.system_repos
-            readonly = True
+        if not repos.exists():
+            if self.config.bind_system_repos:
+                raise FileNotFoundError(f"Repos directory not found: {repos}")
+            else:
+                self.logger.debug("Creating user repo directory: %s", repos)
+                repos.mkdir(parents=True)
 
         self.bind_mount(repos, self.config.sysroot / "var/db/repos", readonly=readonly)
 

@@ -144,8 +144,7 @@ class GenTreeConfig:
     crossdev_use_env: bool = False  # Use common/compiler flags from the env for crossdev
     crossdev_env: dict = None  # Environment variables to set for crossdev
     # bind mounts
-    bind_system_repos: bool = True  # bind /var/db/repos on the config root
-    user_repo_overlay: bool = True  # Mount an overlay at self.repo_dir over the system repos
+    bind_system_repos: bool = False  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
     # Build cleaner
     clean_seed: bool = False  # Cleans the seed directory before chrooting

@@ -286,7 +286,7 @@ class GenTree(MountMixins, OCIMixins):
 
         self.mount_seed_overlay()  # Mount the seed overlay, if no_seed_overlay is False (default)
         self.mount_system_dirs()  # Mount system dirs, such as /sys, /proc, /dev
-        self.mount_system_repos() # Mount system repos
+        self.mount_repos() # Mount system or user repos
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
         self.bind_mount(self.config.pkgdir, self.config.pkgdir_mount, readonly=False)
         self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)
@@ -319,9 +319,14 @@ class GenTree(MountMixins, OCIMixins):
         self.init_namespace()
         self.run_emerge(["--usepkg=y", "--noreplace", "crossdev", "eselect-repository"])
         try:
-            run(["eselect", "repository", "enable", "crossdev"], check=True, capture_output=True)
+            cmd = run(["eselect", "repository", "enable", "crossdev"], check=True, capture_output=True)
+            if "repository already enabled" in cmd.stdout.decode():
+                self.logger.debug("Crossdev repository already enabled")
         except CalledProcessError as e:
             raise RuntimeError("Failed to enable crossdev repository: %s" % e.stderr.decode()) from e
+
+        for file in Path("/var/db/repos/crossdev").rglob("**"):
+            self.logger.critical("Crossdev repo: %s", file)
 
         try:
             run(["crossdev", "--target", chain], check=True)

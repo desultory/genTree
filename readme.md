@@ -32,7 +32,7 @@ By default, repos at `~/.local/share/genTree/repos` are used, and must be create
 
 > Any sync method can be used.
 
-> Symetem repos can be used by setting `bind_system_repos` to true in the config.
+> System repos can be used by setting `bind_system_repos` to true in the config.
 
 ### Updating seeds
 

@@ -334,7 +334,7 @@ class GenTreeConfig:
                 val = seed_overrides.get(attr)  # Get the seed override if it exists
         val = val or DEFAULT_CONFIG.get(attr)  # Get the default value if no seed override is set
 
-        if subattrs:
+        if val and subattrs:
             for subattr in subattrs:
                 val = val.get(subattr, {})
         return val or default

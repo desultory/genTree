@@ -24,6 +24,16 @@ A seed must be imported before genTree can be used, whis is done with `genTree-i
 
 ex. `genTree-import-seed stage3.tar.xz stage3-openrc .`
 
+### Syncing repos
+
+By default, repos at `~/.local/share/genTree/repos` are used, and must be created with:
+
+`genTree-exec <seed_name> emerge --sync` 
+
+> Any sync method can be used.
+
+> Symetem repos can be used by setting `bind_system_repos` to true in the config.
+
 ### Updating seeds
 
 Seeds can be updated with `genTree-update-seed <seed name> [alternate update arg string]`.
@@ -268,7 +278,7 @@ common_flags = "-O3 -pipe -march=native -flto"  # Set common flags
 
 Several components are mounted into the build namespace as read-only bind mounts:
 
-* `bind_system_repos` (true) - mounts the path `system_repos` to `/var/db/repos`.
+* `bind_system_repos` (false) - mounts the path `system_repos` to `/var/db/repos`.
 
 ### seed (sysroot) overlay
 

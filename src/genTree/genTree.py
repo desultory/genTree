@@ -1,7 +1,6 @@
 from os import chdir, chroot
 from pathlib import Path
 from shlex import split
-from shutil import rmtree
 from subprocess import CalledProcessError, run
 from tarfile import ReadError, TarFile
 
@@ -44,28 +43,6 @@ class GenTree(MountMixins, OCIMixins):
     def __init__(self, config_file=None, *args, **kwargs):
         self.config = GenTreeConfig(config_file=config_file, logger=self.logger, **kwargs)
 
-    def prepare_build(self, config):
-        """Prepares the build environment for the passed config"""
-        if config.clean_build:
-            config.logger.warning(
-                " -.- [%s] Cleaning root: %s", colorize(config.name, "blue"), colorize(config.overlay_root, "red")
-            )
-            for root in ["overlay_root", "lower_root", "work_root", "upper_root"]:
-                root_dir = getattr(config, root)
-                if not root_dir.exists():
-                    continue
-                if root_dir.is_mount():
-                    config.logger.warning(
-                        "[%s] Unmounting root: %s",
-                        colorize(config.name, "blue"),
-                        colorize(root_dir, "yellow"),
-                    )
-                    run(["umount", root_dir], check=True)
-                config.logger.debug("Cleaning root: %s", root_dir)
-                rmtree(root_dir)
-
-        config.check_dir(["overlay_root", "lower_root", "work_root", "upper_root"])
-
     def build_bases(self, config):
         """Builds the bases for the current config"""
         if bases := config.bases:
@@ -84,6 +61,10 @@ class GenTree(MountMixins, OCIMixins):
         if base.layer_archive in deployed_bases:
             return base.logger.debug("Skipping base as it has already been deployed: %s", base.layer_archive)
 
+        if not Path(dest).exists():
+            base.logger.debug("Creating parent directories for: %s", dest)
+            Path(dest).mkdir(parents=True)
+
         try:
             with TarFile.open(base.layer_archive, "r") as tar:
                 tar.extractall(dest, filter=config.whiteout_filter)
@@ -100,8 +81,8 @@ class GenTree(MountMixins, OCIMixins):
         Mounts an overlayfs on the build root."""
         dest = dest or config.lower_root
         bases = getattr(config, "bases")
-        if not bases:
-            return
+        if not bases:  # Make sure the lower root is created since there are no bases to deploy
+            return config.check_dir("lower_root")
 
         deployed_bases = [] if deployed_bases is None else deployed_bases
         for base in bases:
@@ -177,9 +158,8 @@ class GenTree(MountMixins, OCIMixins):
                 colorize(config.layer_archive, "cyan"),
             )
 
-        self.prepare_build(config=config)
         self.deploy_bases(config=config)
-        self.mount_root_overlay(config=config)
+        self.overlay_mount(mountpoint=config.overlay_root, lower=config.lower_root, upper=config.upper_root)
         self.mount_config_overlay(config=config)
         self.perform_emerge(config=config)
         self.perform_unmerge(config=config)
@@ -298,34 +278,15 @@ class GenTree(MountMixins, OCIMixins):
             colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green", bright=True),
         )
 
-    def clean_seed_overlay(self):
-        """Cleans the seed upper and work dirs"""
-        for root in ["upper", "work", "temp"]:
-            seed_root = Path(getattr(self.config, f"{root}_seed_root"))
-            if seed_root.exists():
-                self.logger.info(" --- Cleaning seed root: %s", colorize(seed_root, "red"))
-                rmtree(seed_root)
-            else:
-                self.logger.debug("Seed root does not exist: %s", seed_root)
-
     def init_namespace(self):
         """Initializes the namespace for the current config
         If clean_seed is True, cleans the seed overlay upper and work dirs
         """
-
         self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
-        if self.config.clean_seed:
-            self.clean_seed_overlay()
-        else:
-            self.logger.debug("Seed overlay cleaning disabled")
 
-        if not self.config.no_seed_overlay:
-            self.mount_seed_overlay()  # Don't use an overly if not needed
-        else:
-            self.logger.warning(" !-! Skipping seed overlay creation.")
-
-        self.mount_system_dirs()
-        self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
+        self.mount_seed_overlay()  # Mount the seed overlay, if no_seed_overlay is False (default)
+        self.mount_system_dirs()  # Mount system dirs, such as /sys, /proc, /dev
+        self.mount_repos() # Mount system or user repos
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
         self.bind_mount(self.config.pkgdir, self.config.pkgdir_mount, readonly=False)
         self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)
@@ -358,7 +319,9 @@ class GenTree(MountMixins, OCIMixins):
         self.init_namespace()
         self.run_emerge(["--usepkg=y", "--noreplace", "crossdev", "eselect-repository"])
         try:
-            run(["eselect", "repository", "enable", "crossdev"], check=True, capture_output=True)
+            cmd = run(["eselect", "repository", "enable", "crossdev"], check=True, capture_output=True)
+            if "repository already enabled" in cmd.stdout.decode():
+                self.logger.debug("Crossdev repository already enabled")
         except CalledProcessError as e:
             raise RuntimeError("Failed to enable crossdev repository: %s" % e.stderr.decode()) from e
 

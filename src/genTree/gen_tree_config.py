@@ -77,6 +77,8 @@ CHILD_RESTRICTED = [
     "_config_dir",
     "distfile_dir",
     "_distfile_dir",
+    "repo_dir",
+    "_repo_dir",
     "conf_root",
     "output_file",
     "refilter",
@@ -117,6 +119,7 @@ class GenTreeConfig:
     _config_dir: Path = None  # Directory where config overlays are stored
     _pkgdir: Path = None  # Directory where packages are stored
     _distfile_dir: Path = None  # Directory where distfiles are stored
+    _repo_dir: Path = None  # Directory where user repos are stored
     output_file: Path = None  # Override the output file for the final archive
     package_tag: str = None  # Tag to use for the package directory, uses the build_tag if not set
     # Profiles can be set in any config and are applied before the emerge
@@ -141,7 +144,7 @@ class GenTreeConfig:
     crossdev_use_env: bool = False  # Use common/compiler flags from the env for crossdev
     crossdev_env: dict = None  # Environment variables to set for crossdev
     # bind mounts
-    bind_system_repos: bool = True  # bind /var/db/repos on the config root
+    bind_system_repos: bool = False  # bind /var/db/repos on the config root
     system_repos: Path = "/var/db/repos"
     # Build cleaner
     clean_seed: bool = False  # Cleans the seed directory before chrooting
@@ -205,8 +208,11 @@ class GenTreeConfig:
             return self.on_conf_root("distfiles")
 
     @property
-    def crossdev_repo_dir(self):
-        return Path("/crossdev_repo")
+    def repo_dir(self):
+        if self._repo_dir:
+            return self._repo_dir.expanduser().resolve()
+        else:
+            return self.on_conf_root("repos")
 
     @property
     def buildname(self):
@@ -229,10 +235,6 @@ class GenTreeConfig:
         return self.overlay_root.with_name(f".{self.buildname}_lower")
 
     @property
-    def work_root(self):
-        return self.overlay_root.with_name(f".{self.buildname}_work")
-
-    @property
     def upper_root(self):
         return self.overlay_root.with_name(f"{self.buildname}_upper")
 
@@ -251,24 +253,8 @@ class GenTreeConfig:
         return self.seed_dir / f"{self.seed}_sysroot"
 
     @property
-    def upper_seed_root(self):
-        if self.ephemeral_seed:
-            return self.temp_seed_root / "upper"
-        return self.sysroot.with_name(f"{self.seed}_upper")
-
-    @property
     def seed_root(self):
         return self.sysroot.with_name(f"{self.seed}")
-
-    @property
-    def work_seed_root(self):
-        if self.ephemeral_seed:
-            return self.temp_seed_root / "work"
-        return self.sysroot.with_name(f".{self.seed}_work")
-
-    @property
-    def temp_seed_root(self):
-        return self.sysroot.with_name(f".{self.seed}_temp")
 
     @property
     def layer_archive(self):

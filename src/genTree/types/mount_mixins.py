@@ -29,7 +29,7 @@ class MountMixins:
         config.logger.info(
             " =-= [%s] Mounting config overlay on: %s", colorize(config.name, "green"), colorize(config_dir, "blue")
         )
-        self.overlay_mount("/etc/portage", config_dir)
+        self.overlay_mount("/etc/portage", config_dir, log=False)
 
     def mount_seed_overlay(self):
         """Mounts an overlayfs on the seed root"""
@@ -70,6 +70,7 @@ class MountMixins:
         userxattr=True,
         temp=False,
         clean=False,
+        log=True,
     ):
         """Mounts an overlayfs using the specified lower dir and mountpint.
         If an upper or work directory is not specified, they will be created in the same directory as the lower dir
@@ -113,7 +114,8 @@ class MountMixins:
         options = "userxattr," if userxattr else ""
         options += f"lowerdir={lowerdir},upperdir={upper},workdir={work}"
         args = ["mount", "-t", "overlay", "overlay", "-o", options, str(mountpoint)]
-        self.logger.info(" ~/* Mounting overlay on: %s", colorize(mountpoint, "cyan", bold=True))
+        if log:
+            self.logger.info(" ~/* Mounting overlay on: %s", colorize(mountpoint, "cyan", bold=True))
         run(args, check=True)
 
     def bind_mount(self, source: Path, dest: Path, recursive=False, readonly=True, file=False):

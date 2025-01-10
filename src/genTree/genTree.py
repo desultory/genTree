@@ -319,12 +319,8 @@ class GenTree(MountMixins, OCIMixins):
         else:
             self.logger.debug("Seed overlay cleaning disabled")
 
-        if not self.config.no_seed_overlay:
-            self.mount_seed_overlay()  # Don't use an overly if not needed
-        else:
-            self.logger.warning(" !-! Skipping seed overlay creation.")
-
-        self.mount_system_dirs()
+        self.mount_seed_overlay()  # Mount the seed overlay, if no_seed_overlay is False (default)
+        self.mount_system_dirs()  # Mount system dirs, such as /sys, /proc, /dev
         self.bind_mount(self.config.system_repos, self.config.sysroot / "var/db/repos")
         self.bind_mount("/etc/resolv.conf", self.config.sysroot / "etc/resolv.conf", file=True)
         self.bind_mount(self.config.pkgdir, self.config.pkgdir_mount, readonly=False)

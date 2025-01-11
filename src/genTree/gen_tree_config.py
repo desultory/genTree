@@ -12,6 +12,9 @@ from zenlib.util import colorize, handle_plural, pretty_print
 from .filters import BuildCleaner, GenTreeTarFilter, WhiteoutFilter
 from .types import EmergeBools, PortageFlags
 
+# Lookup the crossdev profile using the crossdev_target
+DEFAULT_EXPAND = {"crossdev_profile": "crossdev_target"}
+
 # Check load config from the package root/default.toml,
 # Then check /etc/genTree/gentree.toml and ~/.config/genTree/gentree.toml
 
@@ -333,6 +336,13 @@ class GenTreeConfig:
             if val is None:  # Try to get the seed override if no build tag override is set
                 val = seed_overrides.get(attr)  # Get the seed override if it exists
         val = val or DEFAULT_CONFIG.get(attr)  # Get the default value if no seed override is set
+
+        if attr in DEFAULT_EXPAND:
+            if search_val := getattr(self, DEFAULT_EXPAND[attr]):
+                self.logger.debug("[%s] Searching for default key using value: %s", attr, search_val)
+                val = val.get(search_val)
+            else:
+                raise ValueError(f"Cannot expand default value for {attr}: {DEFAULT_EXPAND[attr]} is not set")
 
         if val and subattrs:
             for subattr in subattrs:

@@ -138,12 +138,16 @@ The following defaults inheritance can be configured:
 
 > The `env` dict is used to set environment variables including INHERITED_CONFIG, ENV_VARS, and DEF_ARGS
 
+> Crossdev profiles are set by key name, using the target tuple as the value.
+
 ```
 # ~/.config/genTree/config.toml
 
 seed = "openrc-hardened"
 profile = "default/linux/amd64/23.0/no-multilib/hardened"
-crossdev_profile = "default/linux/arm64/23.0"
+
+[crossdev_profile]
+aarch64-unknown-linux-gnu = "default/linux/arm64/23.0"
 
 [env]
 cpu_flags_x86 = "aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vpclmulqdq"

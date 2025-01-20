@@ -342,7 +342,9 @@ class GenTreeConfig:
                 self.logger.debug("[%s] Searching for default key using value: %s", attr, search_val)
                 val = val.get(search_val)
             else:
-                raise ValueError(f"Cannot expand default value for {attr}: {DEFAULT_EXPAND[attr]} is not set")
+                return self.logger.debug(
+                    "[%s] Cannot expand default value, search value is not set: %s" % (attr, DEFAULT_EXPAND[attr])
+                )
 
         if val and subattrs:
             for subattr in subattrs:
@@ -412,7 +414,7 @@ class GenTreeConfig:
 
     @handle_plural
     def load_defaults(self, argname):
-        """ Loads default values from the config file
+        """Loads default values from the config file
         Uses this value if no value is set in the config"""
         if default := self.get_default(argname):
             default = deepcopy(default)

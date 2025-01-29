@@ -41,7 +41,8 @@ DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format"]
-ENV_VARS = [*ENV_VAR_INHERITED, "use", "features", "accept_keywords", "accept_license"]
+BASIC_ENV_VARS = ["accept_keywords", "accept_license"]
+ENV_VARS = [*ENV_VAR_INHERITED, *BASIC_ENV_VARS, "use", "features"]
 
 NO_DEFAULT_LOOKUP = [
     "name",  # Should be unique to each config
@@ -53,6 +54,7 @@ NO_DEFAULT_LOOKUP = [
     "opaques",  # ''
     "packages",  # Should be unique per tree, no sense in a default
     "unmerge",  # ''
+    "logger",
 ]
 
 INHERITED_CONFIG = [
@@ -329,6 +331,8 @@ class GenTreeConfig:
         Additioanal args are used to get sub-elements in dictionaries
         A default arg, used when no value was found, can be set with the 'default' kwarg
         """
+        if attr in NO_DEFAULT_LOOKUP:
+            return self.logger.log(5, "No default lookup for attribute: %s", attr)
         val = None
         if seed_overrides := DEFAULT_CONFIG.get("default", {}).get(self.seed):
             if build_overrides := seed_overrides.get(self.build_tag):
@@ -349,10 +353,16 @@ class GenTreeConfig:
         if val and subattrs:
             for subattr in subattrs:
                 val = val.get(subattr, {})
-        return val or default
+        val = val or default
+        if val is None:
+            return self.logger.debug("[%s] No default value found", attr)
+        if type(val).__name__ not in ["str", "int", "bool"]:
+            val = deepcopy(val)
+        self.logger.debug("[%s] Using default value: %s", attr, val)
+        return val
 
     def __getattribute__(self, attr):
-        """Try to get the attribute normally, if it's None, try the default config"""
+        """Ge"""
         if attr.startswith("_") or attr in NO_DEFAULT_LOOKUP:
             return super().__getattribute__(attr)
 
@@ -360,12 +370,15 @@ class GenTreeConfig:
         if val is None:
             if attr == "seed":
                 return DEFAULT_CONFIG.get("seed")  # Seed is used in a lookup in get_default
-            self.logger.debug("Getting default value for %s", attr)
+            self.logger.log(5, "Getting default value for %s", attr)
             default = self.get_default(attr)
             if default is not None:
-                return default
-            self.logger.debug("No default value found for %s", attr)
-            NO_DEFAULT_LOOKUP.append(attr)
+                # If the default is set, deepcopy it and set it as the attribute
+                super().__setattr__(attr, deepcopy(default))
+                val = super().__getattribute__(attr)
+            else:
+                self.logger.log(5, "No default value found for %s", attr)
+                NO_DEFAULT_LOOKUP.append(attr)
         return val
 
     @handle_plural
@@ -392,9 +405,9 @@ class GenTreeConfig:
         """Inherits config from the parent object"""
         self.logger.log(5, "Inheriting config from parent: %s", self.parent)
         for attr in INHERITED_CONFIG:
-            parent_val = getattr(self.parent, attr, self.get_default(attr))
-            self.logger.debug("Inheriting attribute: %s=%s", attr, parent_val)
-            setattr(self, attr, parent_val)
+            if parent_val := getattr(self.parent, attr, self.get_default(attr)):
+                self.logger.debug("Inheriting attribute: %s=%s", attr, parent_val)
+                setattr(self, attr, parent_val)
         if self.inherit_config:
             if "config_overlay" in self.config:
                 raise ValueError(
@@ -420,6 +433,7 @@ class GenTreeConfig:
             default = deepcopy(default)
         else:
             default = {}
+        self.logger.log(5, "[%s] Loaded default config: %s", argname, default)
         setattr(self, argname, default | self.config.get(argname, {}))
 
     def load_config(self, config_file):
@@ -449,6 +463,7 @@ class GenTreeConfig:
         for key, value in self.config.items():
             if key in ["name", "logger", "env", "crossdev_env", "bases", "whiteouts", "opaques", *DEF_ARGS]:
                 continue  # Don't set these attributes directly
+            self.logger.debug("[%s] Setting attribute from config: %s", key, value)
             setattr(self, key, value)
 
         add_bases = self.bases or []
@@ -458,6 +473,7 @@ class GenTreeConfig:
 
         self.whiteouts = self.config.get("whiteouts", set())
         self.opaques = self.config.get("opaques", set())
+        self.logger.log(5, "[%s] Processed config:\n%s", self.name, self)
 
     def inherit_defaults(self):
         """Load inherited defaults for the top level config"""
@@ -487,25 +503,39 @@ class GenTreeConfig:
         for env in ENV_VAR_INHERITED:
             parent_value = self.parent.env.get(env) if self.parent else ""
             if env_value := self.get_env(env, default=parent_value):
+                self.logger.debug("Inheriting environment variable: %s=%s", env, env_value)
                 self.env[env] = env_value
-            elif (default := self.get_default("env", env)) and self.inherit_env:
-                self.logger.debug("Using default value for %s: %s", env, default)
-                self.env[env] = default
+            else:
+                self.logger.log(5, "Unable to inherit environment variable: %s", env)
 
     def load_env(self):
-        """Loads environment variables from the config.
+        """
+        First, loads basic environment variables from the config.
+        Then inherited values from the parent config are set.
         Features are inherited by default
         USE flags are inherited if inherit_use is set"""
+        for env in BASIC_ENV_VARS:
+            if env_value := self.get_env(env):
+                if current := self.env.get(env):
+                    if current == env_value:
+                        self.logger.log(5, "Environment variable already set: %s=%s", env, current)
+                        continue
+                    self.logger.debug("[%s] Overwriting environment variable: %s -> %s", env, current, env_value)
+                else:
+                    self.logger.debug("Setting environment variable: %s=%s", env, env_value)
+                self.env[env] = env_value
+        self.inherit_parent_env()
+
         use = PortageFlags(self.get_env("use", default=""))
         if (parent := self.parent) and self.inherit_use:
             use |= parent.env["use"]
-        self.env = {"use": use}
+        self.env["use"] = use
 
         features = PortageFlags(self.get_env("features", default=""))
         if (parent := self.parent) and self.inherit_features:
-            features |= PortageFlags(parent.env["features"])
+            features |= parent.env["features"]
+
         self.env["features"] = features
-        self.inherit_parent_env()
 
         # Process common flags, pop common_flags from the env dict, apply to each type
         if common_flags := self.get_env("common_flags"):
@@ -564,16 +594,15 @@ class GenTreeConfig:
 
     def set_portage_env(self):
         """Sets portage environment variables based on the config"""
-        for env in ENV_VARS:
-            env_value = self.env.get(env)
-            env = env.upper()
-            if env_value is None or hasattr(env_value, "__len__") and len(env_value) == 0:
-                if env in environ:
-                    self.logger.debug("Unsetting environment variable: %s", env)
-                    environ.pop(env)
+        for name, value in self.env.items():
+            name = name.upper()
+            if value is None or hasattr(value, "__len__") and len(value) == 0:
+                if name in environ:
+                    self.logger.debug("Unsetting environment variable: %s", name)
+                    environ.pop(name)
                 continue
-            self.logger.debug("Setting environment variable: %s=%s", env, env_value)
-            environ[env] = str(env_value)
+            self.logger.debug("Setting environment variable: %s=%s", name, value)
+            environ[name] = str(value)
 
         if use := self.env.get("use"):
             self.logger.info(" ~+~ Environment USE flags: %s", colorize(use, "yellow"))

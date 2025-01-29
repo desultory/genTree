@@ -604,6 +604,9 @@ class GenTreeConfig:
             self.logger.debug("Setting environment variable: %s=%s", name, value)
             environ[name] = str(value)
 
+        if accept_keywords := self.env.get("accept_keywords"):
+            self.logger.info(" ~*~ Accepting keywords: %s", colorize(accept_keywords, "yellow"))
+
         if use := self.env.get("use"):
             self.logger.info(" ~+~ Environment USE flags: %s", colorize(use, "yellow"))
 

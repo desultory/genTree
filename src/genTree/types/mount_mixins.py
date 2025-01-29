@@ -27,7 +27,7 @@ class MountMixins:
             return config.logger.debug("Config overlay directory not found: %s", config_dir)
 
         config.logger.info(
-            " =-= [%s] Mounting config overlay on: %s", colorize(config.name, "green"), colorize(config_dir, "blue")
+            " =-= [%s] Mounting config overlay on: %s", colorize(config.name, "green"), colorize("/etc/portage/", "blue")
         )
         self.overlay_mount("/etc/portage", config_dir, log=False)
 

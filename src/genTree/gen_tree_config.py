@@ -41,7 +41,7 @@ DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format"]
-ENV_VARS = [*ENV_VAR_INHERITED, "use", "features"]
+ENV_VARS = [*ENV_VAR_INHERITED, "use", "features", "accept_keywords", "accept_license"]
 
 NO_DEFAULT_LOOKUP = [
     "name",  # Should be unique to each config

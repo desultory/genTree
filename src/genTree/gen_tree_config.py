@@ -236,6 +236,15 @@ class GenTreeConfig:
         return Path("/builds") / self.buildname
 
     @property
+    def portage_config_overlay(self):
+        return self.overlay_root / "etc/portage"
+
+    @property
+    def portage_config_dir(self):
+        if self.config_overlay:
+            return Path("/config") / self.config_overlay
+
+    @property
     def lower_root(self):
         return self.overlay_root.with_name(f".{self.buildname}_lower")
 
@@ -303,7 +312,10 @@ class GenTreeConfig:
 
     @property
     def emerge_flags(self):
-        return ["--root", str(self.overlay_root), *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
+        flags = ["--root", str(self.overlay_root)]
+        if self.config_overlay:
+            flags.extend(["--config-root", str(self.overlay_root)])
+        return [*flags, *self.emerge_string_args, *self.emerge_bool_args, *self.packages]
 
     @property
     def emerge_cmd(self):

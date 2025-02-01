@@ -1,5 +1,5 @@
 from pathlib import Path
-from shutil import rmtree
+from shutil import copytree, rmtree
 from subprocess import CalledProcessError, run
 
 from zenlib.util import colorize
@@ -17,19 +17,24 @@ class MountMixins:
                     config.logger.warning("Unable to update userspace mount table unmounting /etc/portage.")
                 else:
                     raise e
-        if not config.config_overlay:
+        if not config.portage_config_overlay:
             return config.logger.debug("No config overlay specified, skipping config overlay mount")
-        config_dir = Path("/config") / config.config_overlay
 
-        if not config_dir.exists():
-            if config.config_overlay:
-                raise FileNotFoundError(f"Config overlay directory not found: {config_dir}")
-            return config.logger.debug("Config overlay directory not found: %s", config_dir)
+        if not config.portage_config_dir.exists():
+            if config.portage_config_overlay:
+                raise FileNotFoundError(f"Config overlay directory not found: {config.portage_config_dir}")
+            return config.logger.debug("Config overlay directory not found: %s", config.portage_config_dir)
 
         config.logger.info(
-            " =-= [%s] Mounting config overlay on: %s", colorize(config.name, "green"), colorize("/etc/portage/", "blue")
+            " =-= [%s] Mounting config overlay on: %s",
+            colorize(config.name, "green"),
+            colorize(config.portage_config_overlay, "blue"),
         )
-        self.overlay_mount("/etc/portage", config_dir, log=False)
+        # Mount an overlay using /etc/portage as the lower dir, and the overlay portage config as the mountpoint
+        self.overlay_mount(config.portage_config_overlay, "/etc/portage", temp=True, log=False)
+        # Copy all files from the config dir to the overlay portage config dir
+        copytree(config.portage_config_dir, config.portage_config_overlay, dirs_exist_ok=True)
+
 
     def mount_seed_overlay(self):
         """Mounts an overlayfs on the seed root"""
@@ -44,7 +49,7 @@ class MountMixins:
         self.overlay_mount(self.config.sysroot, self.config.seed_root, temp=temp, clean=clean)
 
     def mount_repos(self):
-        """ Mounts the system repos over var/db/repos in the sysroot if bind_system_repos is enabled.
+        """Mounts the system repos over var/db/repos in the sysroot if bind_system_repos is enabled.
         otherwise, mounts the user repo overlay or crossdev target over var/db/repos in the sysroot.
         """
         repos = self.config.system_repos if self.config.bind_system_repos else self.config.repo_dir
@@ -112,7 +117,7 @@ class MountMixins:
             work = tmpdir / "work"
         else:
             upper = Path(upper) if upper else lowerdir.with_name(f".{lowerdir.name}_upper")
-            work = Path(work) if work else lowerdir.with_name(f".{lowerdir.name}_work")
+            work = Path(work) if work else upper.with_name(f".{lowerdir.name}_work")
 
         if clean:
             for d in [upper, work]:
@@ -131,8 +136,8 @@ class MountMixins:
         options += f"lowerdir={lowerdir},upperdir={upper},workdir={work}"
         args = ["mount", "-t", "overlay", "overlay", "-o", options, str(mountpoint)]
         self.logger.debug("[overlay] Using options: %s", options)
-        if log:
-            self.logger.info(" ~/* Mounting overlay on: %s", colorize(mountpoint, "cyan", bold=True))
+        loglevel = 20 if log else 10
+        self.logger.log(loglevel, " ~/* Mounting overlay on: %s", colorize(mountpoint, "cyan", bold=True))
         run(args, check=True)
 
     def bind_mount(self, source: Path, dest: Path, recursive=False, readonly=True, file=False):

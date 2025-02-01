@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Generates filesystem trees using portage."
 readme = "readme.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",

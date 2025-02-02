@@ -579,7 +579,7 @@ class GenTreeConfig:
             return self.logger.debug("No portage profile set")
 
         profile, profile_repo = self.profile, self.profile_repo
-        portage_config = self.portage_config_dir or Path("/etc/portage")
+        portage_config = self.portage_config_overlay if self.config_overlay else Path("/etc/portage")
         profile_sym = portage_config / "make.profile"
         if self.crossdev_target:
             profile = self.crossdev_profile or self.profile

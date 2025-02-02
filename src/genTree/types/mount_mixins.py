@@ -17,11 +17,11 @@ class MountMixins:
                     config.logger.warning("Unable to update userspace mount table unmounting /etc/portage.")
                 else:
                     raise e
-        if not config.portage_config_overlay:
+        if not config.portage_config_dir:
             return config.logger.debug("No config overlay specified, skipping config overlay mount")
 
         if not config.portage_config_dir.exists():
-            if config.portage_config_overlay:
+            if config.config_overlay:
                 raise FileNotFoundError(f"Config overlay directory not found: {config.portage_config_dir}")
             return config.logger.debug("Config overlay directory not found: %s", config.portage_config_dir)
 

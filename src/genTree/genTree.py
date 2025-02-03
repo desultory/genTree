@@ -82,7 +82,8 @@ class GenTree(MountMixins, OCIMixins):
         dest = dest or config.lower_root
         bases = getattr(config, "bases")
         if not bases:  # Make sure the lower root is created since there are no bases to deploy
-            return config.check_dir("lower_root")
+            config.check_dir("lower_root")
+            return []
 
         deployed_bases = [] if deployed_bases is None else deployed_bases
         for base in bases:

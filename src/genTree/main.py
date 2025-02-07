@@ -24,7 +24,7 @@ def main():
     ]
 
     kwargs = get_kwargs(
-        package=__package__, description="Generates filesystem trees with portage.", arguments=arguments
+        package=__package__, description="Generates filesystem trees with portage.", arguments=arguments, strict=True
     )
     genTree = GenTree(**kwargs)
     nsexec(genTree.build_tree)
@@ -46,6 +46,7 @@ def clean_builds():
         package="genTree-clean-builds",
         description="Removes all build tarballs from the build directory.",
         arguments=arguments,
+        strict=True,
     )
     logger = kwargs.pop("logger")
     build_root = Path(kwargs.pop("build_root")).expanduser().resolve()
@@ -81,7 +82,9 @@ def execute():
         },
     ]
 
-    kwargs = get_kwargs(package="genTree-exec", description="Executes a command in a seed", arguments=arguments)
+    kwargs = get_kwargs(
+        package="genTree-exec", description="Executes a command in a seed", arguments=arguments, strict=True
+    )
     # If at the INFO (20) level, set to WARNING (30), if below, leave as is
     if kwargs["logger"].getEffectiveLevel() == 20:
         kwargs["logger"].setLevel(30)
@@ -106,7 +109,7 @@ def update_seed():
             "nargs": "?",
         },
     ]
-    kwargs = get_kwargs(package="genTree-update-seed", description="Updates a seed", arguments=arguments)
+    kwargs = get_kwargs(package="genTree-update-seed", description="Updates a seed", arguments=arguments, strict=True)
     genTree = GenTree(**kwargs)
     nsexec(genTree.update_seed)
 
@@ -132,7 +135,10 @@ def init_crossdev():
         },
     ]
     kwargs = get_kwargs(
-        package="genTree-init-crossdev", description="Initializes a crossdev toolchain", arguments=arguments
+        package="genTree-init-crossdev",
+        description="Initializes a crossdev toolchain",
+        arguments=arguments,
+        strict=True,
     )
     crossdev_target = kwargs.pop("crossdev_target")  # Don't set this, it is set after the crossdev chains is built
     kwargs["bases"] = [kwargs.pop("base")]  # Set the base
@@ -172,6 +178,7 @@ def import_seed():
         package="genTree-import-seed",
         description="Imports a seed archive to ~/.local/share/genTree/seeds/<name>",
         arguments=arguments,
+        strict=True,
     )
     logger = kwargs.pop("logger")
     seed = Path(kwargs.pop("seed"))

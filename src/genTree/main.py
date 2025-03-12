@@ -147,7 +147,7 @@ def init_crossdev():
     genTree = GenTree(**kwargs)
     nsexec(genTree.init_crossdev, crossdev_target)
     kwargs["crossdev_target"] = crossdev_target  # Set the crossdev target so it's used when building
-    genTree = GenTree(**kwargs)  # Re-init with crossdev info
+    genTree = GenTree(**kwargs)  # re-init with the crossdev target set so it's used for emerge
     nsexec(genTree.stage_crossdev, crossdev_target)
 
 

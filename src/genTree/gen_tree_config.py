@@ -37,7 +37,7 @@ for config in [
                     DEFAULT_CONFIG[key] = value
 
 
-DEF_ARGS = ["clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
+DEF_ARGS = ["seed", "clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format"]
@@ -346,9 +346,10 @@ class GenTreeConfig:
         """
         if attr in NO_DEFAULT_LOOKUP:
             return self.logger.log(5, "No default lookup for attribute: %s", attr)
-        seed = getattr(self, "seed")
-        build_tag = getattr(self, "build_tag")
+        seed = self.seed
+        build_tag = self.build_tag
         conf_tag_str = f"{seed} ({build_tag})" if build_tag else seed
+        attr_str = f"{attr} ({':'.join(subattrs)})" if subattrs else attr
         val = None
         if seed_overrides := DEFAULT_CONFIG.get("default", {}).get(seed):
             if build_overrides := seed_overrides.get(build_tag):
@@ -370,49 +371,30 @@ class GenTreeConfig:
             for subattr in subattrs:
                 val = val.get(subattr, {})
                 if not val:
-                    self.logger.debug(f"<{conf_tag_str}>[{attr}] No default value found for subattribute: {subattr} [{':'.join(subattrs)}]")
+                    self.logger.debug(f"<{conf_tag_str}>[{attr_str}] No default value found for subattribute: {subattr}")
         val = val or default
         if val is None:
-            return self.logger.debug(f"<{conf_tag_str}> No default value for: {attr}")
+            return self.logger.debug(f"<{conf_tag_str}> No default value for: {attr_str}")
         if type(val).__name__ not in ["str", "int", "bool"]:
             val = deepcopy(val)
-        self.logger.debug(f"<{conf_tag_str}>[{attr}] Using default value: {repr(val)}")
+        self.logger.debug(f"<{conf_tag_str}>[{attr_str}] Using default value: {repr(val)}")
         return val
 
     def __getattribute__(self, attr):
-        """Gets an attribute from the config, if it is not set, try to get a default value.
-        If the attribute starts wtih an underscore, return the attribute as normal.
+        """Gets an attribute from the config object, attempt to use the config dict if no attribute is set.
+        If the attribute starts wtih an underscore, return the attribute directly.
 
-        Don't do a default lookup if the attribute is in NO_DEFAULT_LOOKUP.
-        For the seed attribute, return the default value from the DEFAULT_CONFIG if it is not set.
-        For everything else, attempt to get attributes using get_default.
-
-        If a default is found, set the attribute to the default value and return it.
-        If not, attempt to get the attribute from the config, and set it as the attribute if it is found.
-
+        If the attribute has no value, attempt to get the attribute from the config, and set it as the attribute if it is found.
         Return the resulting attribute value, or None if no value is found.
         """
         if attr.startswith("_"):
             return super().__getattribute__(attr)
 
         val = super().__getattribute__(attr)
-        if val is None and attr not in NO_DEFAULT_LOOKUP:
-            if attr == "seed":
-                return DEFAULT_CONFIG.get("seed")  # Seed is used in a lookup in get_default
-            self.logger.log(5, "Getting default value for %s", attr)
-            default = self.get_default(attr)
-            if default is not None:
-                self.logger.debug("Setting value from defaults: %s=%s", attr, default)
-                # If the default is set, deepcopy it and set it as the attribute
-                super().__setattr__(attr, deepcopy(default))
-                val = super().__getattribute__(attr)
-            else:
-                self.logger.log(5, "No default value found for: %s", attr)
-
-        if val is None:
-            if attr in self.config:
-                self.logger.debug("[%s] Setting attribute from config: %s", attr, self.config[attr])
-                super().__setattr__(attr, deepcopy(self.config[attr]))
+        if val is None and (config := super().__getattribute__("config")):
+            if attr in config:
+                self.logger.debug("[%s] Setting attribute from config: %s", attr, config[attr])
+                super().__setattr__(attr, deepcopy(config[attr]))
                 val = super().__getattribute__(attr)
             else:
                 self.logger.log(5, "No config value found for : %s", attr)
@@ -461,17 +443,23 @@ class GenTreeConfig:
 
     def load_standard_config(self):
         self.load_defaults(DEF_ARGS)  # load defaults
+        self.env = self.get_default("env", default={})  # init env, using the default if no value is set
         self.load_env()
 
     @handle_plural
     def load_defaults(self, argname):
-        """Loads default values from the config file
-        Uses this value if no value is set in the config"""
+        """Sets an arg, merging dicts with default values,
+        otherwise sets the value from the config, using the default if no value is set.
+        If no default is set, set the value to an empty string.
+        """
         if default := self.get_default(argname):
             default = deepcopy(default)
+            if isinstance(default, dict):
+                setattr(self, argname, default | self.config.get(argname, {}))
+            else:
+                setattr(self, argname, self.config.get(argname, default))
         else:
-            default = {}
-        setattr(self, argname, default | self.config.get(argname, {}))
+            setattr(self, argname, self.config.get(argname, ''))
 
     def load_config(self, config_file):
         """Read the config file, load it into self.config, set all config values as attributes"""
@@ -538,7 +526,7 @@ class GenTreeConfig:
     def inherit_parent_env(self):
         """Inherit environment variables from the parent config, or use the default value"""
         for env in ENV_VAR_INHERITED:
-            parent_value = self.parent.env.get(env) if self.parent else ""
+            parent_value = self.parent.env.get(env) if self.parent else None
             if env_value := self.get_env(env, default=parent_value):
                 self.logger.debug("Inheriting environment variable: %s=%s", env, env_value)
                 self.env[env] = env_value

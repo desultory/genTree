@@ -370,10 +370,10 @@ class GenTreeConfig:
             for subattr in subattrs:
                 val = val.get(subattr, {})
                 if not val:
-                    return self.logger.debug(f"<{conf_tag_str}>[{attr}] No default value found for subattribute: {subattr} [{':'.join(subattrs)}]")
+                    self.logger.debug(f"<{conf_tag_str}>[{attr}] No default value found for subattribute: {subattr} [{':'.join(subattrs)}]")
         val = val or default
         if val is None:
-            return self.logger.debug(f"<{conf_tag_str}>[{attr}] No default value found")
+            return self.logger.debug(f"<{conf_tag_str}> No default value for: {attr}")
         if type(val).__name__ not in ["str", "int", "bool"]:
             val = deepcopy(val)
         self.logger.debug(f"<{conf_tag_str}>[{attr}] Using default value: {repr(val)}")

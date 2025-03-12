@@ -54,14 +54,15 @@ NO_DEFAULT_LOOKUP = [
     "opaques",  # ''
     "packages",  # Should be unique per tree, no sense in a default
     "unmerge",  # ''
+    "init_logger",
     "logger",
 ]
 
 INHERITED_CONFIG = [
     "seed",  # Must be set in the top level config, cannot be set in a child
-    "crossdev_target",  # ''
     "build_tag",  # ''
     "package_tag",  # ''
+    "crossdev_target",  # ''
     "clean_build",  # Makes sense to inherit, but overrides can be set in a child
     "crossdev_use_env",  # ''
     "rebuild",  # ''
@@ -345,9 +346,12 @@ class GenTreeConfig:
         """
         if attr in NO_DEFAULT_LOOKUP:
             return self.logger.log(5, "No default lookup for attribute: %s", attr)
+        seed = getattr(self, "seed")
+        build_tag = getattr(self, "build_tag")
+        conf_tag_str = f"{seed} ({build_tag})" if build_tag else seed
         val = None
-        if seed_overrides := DEFAULT_CONFIG.get("default", {}).get(self.seed):
-            if build_overrides := seed_overrides.get(self.build_tag):
+        if seed_overrides := DEFAULT_CONFIG.get("default", {}).get(seed):
+            if build_overrides := seed_overrides.get(build_tag):
                 val = build_overrides.get(attr)  # Get the build tag override if it exists
             if val is None:  # Try to get the seed override if no build tag override is set
                 val = seed_overrides.get(attr)  # Get the seed override if it exists
@@ -355,42 +359,64 @@ class GenTreeConfig:
 
         if attr in DEFAULT_EXPAND:
             if search_val := getattr(self, DEFAULT_EXPAND[attr]):
-                self.logger.debug("[%s] Searching for default key using value: %s", attr, search_val)
+                self.logger.debug(f"<{conf_tag_str}>[{attr}] Searching for default key using value: {search_val}")
                 val = val.get(search_val)
             else:
                 return self.logger.debug(
-                    "[%s] Cannot expand default value, search value is not set: %s" % (attr, DEFAULT_EXPAND[attr])
+                    f"[{attr}] Cannot expand default value, search value is not set: {DEFAULT_EXPAND[attr]}"
                 )
 
         if val and subattrs:
             for subattr in subattrs:
                 val = val.get(subattr, {})
+                if not val:
+                    return self.logger.debug(f"<{conf_tag_str}>[{attr}] No default value found for subattribute: {subattr} [{':'.join(subattrs)}]")
         val = val or default
         if val is None:
-            return self.logger.debug("[%s] No default value found", attr)
+            return self.logger.debug(f"<{conf_tag_str}>[{attr}] No default value found")
         if type(val).__name__ not in ["str", "int", "bool"]:
             val = deepcopy(val)
-        self.logger.debug("[%s] Using default value: %s", attr, val)
+        self.logger.debug(f"<{conf_tag_str}>[{attr}] Using default value: {repr(val)}")
         return val
 
     def __getattribute__(self, attr):
-        """Ge"""
-        if attr.startswith("_") or attr in NO_DEFAULT_LOOKUP:
+        """Gets an attribute from the config, if it is not set, try to get a default value.
+        If the attribute starts wtih an underscore, return the attribute as normal.
+
+        Don't do a default lookup if the attribute is in NO_DEFAULT_LOOKUP.
+        For the seed attribute, return the default value from the DEFAULT_CONFIG if it is not set.
+        For everything else, attempt to get attributes using get_default.
+
+        If a default is found, set the attribute to the default value and return it.
+        If not, attempt to get the attribute from the config, and set it as the attribute if it is found.
+
+        Return the resulting attribute value, or None if no value is found.
+        """
+        if attr.startswith("_"):
             return super().__getattribute__(attr)
 
         val = super().__getattribute__(attr)
-        if val is None:
+        if val is None and attr not in NO_DEFAULT_LOOKUP:
             if attr == "seed":
                 return DEFAULT_CONFIG.get("seed")  # Seed is used in a lookup in get_default
             self.logger.log(5, "Getting default value for %s", attr)
             default = self.get_default(attr)
             if default is not None:
+                self.logger.debug("Setting value from defaults: %s=%s", attr, default)
                 # If the default is set, deepcopy it and set it as the attribute
                 super().__setattr__(attr, deepcopy(default))
                 val = super().__getattribute__(attr)
             else:
-                self.logger.log(5, "No default value found for %s", attr)
-                NO_DEFAULT_LOOKUP.append(attr)
+                self.logger.log(5, "No default value found for: %s", attr)
+
+        if val is None:
+            if attr in self.config:
+                self.logger.debug("[%s] Setting attribute from config: %s", attr, self.config[attr])
+                super().__setattr__(attr, deepcopy(self.config[attr]))
+                val = super().__getattribute__(attr)
+            else:
+                self.logger.log(5, "No config value found for : %s", attr)
+
         return val
 
     @handle_plural
@@ -445,7 +471,6 @@ class GenTreeConfig:
             default = deepcopy(default)
         else:
             default = {}
-        self.logger.log(5, "[%s] Loaded default config: %s", argname, default)
         setattr(self, argname, default | self.config.get(argname, {}))
 
     def load_config(self, config_file):
@@ -457,19 +482,21 @@ class GenTreeConfig:
         with open(config, "rb") as f:
             self.config = load(f)
 
+        # Set the name using 'name' or the config file name
         self.name = self.config.get("name", config.stem)
+        # Correct the logger parent if needed
         self.logger = self.logger.parent.getChild(self.name) if self.logger.parent else self.logger.getChild(self.name)
         self.logger.debug(f"[{config_file}] Loaded config: {self.config}")
 
-        if getattr(self, "parent"):  # Inherit the parent and restrict top-level only attributes
+        # If the config has a parent, it is a child, ensure restricted attributes are not set
+        if getattr(self, "parent"):
             for restricted in CHILD_RESTRICTED:
                 if restricted in self.config:
                     raise ValueError(f"Cannot set {restricted} in a child config")
             self.inherit_parent()
+        # Otherwise, it is a top level config, ensure the seed is set
         elif "seed" not in self.config and "seed" not in DEFAULT_CONFIG:
             raise ValueError("Seed must be set in the top level config")
-        else:
-            self.inherit_defaults()
 
         self.load_standard_config()
         for key, value in self.config.items():
@@ -487,28 +514,26 @@ class GenTreeConfig:
         self.opaques = self.config.get("opaques", set())
         self.logger.log(5, "[%s] Processed config:\n%s", self.name, self)
 
-    def inherit_defaults(self):
-        """Load inherited defaults for the top level config"""
-        for attr in INHERITED_CONFIG:
-            if val := self.get_default(attr):
-                self.logger.debug("Inheriting default config value: %s=%s", attr, val)
-                setattr(self, attr, val)
-
     def get_env(self, attr, default=None):
         """Gets an environment variable from the config.
-        Uses the main env dict, or crossdev_env if a crossdev target is set
-        If a crossdev target is set, and crossdev_use_env is False, don't use the standard value
+        Uses the main env dict, or crossdev_env if a crossdev target is set.
+        If a crossdev target is set, and crossdev_use_env is False, don't use the standard value 'def_val'.
+        Uses 'default'
         """
         val = self.config.get("env", {}).get(attr)
         def_val = self.get_default("env", attr, default=default)
         if self.crossdev_target:
+            # If crossdev_use_env iis not set, set def_val to be the crossdev_env value, or passed default
             if not self.crossdev_use_env and attr in [*ENV_VAR_INHERITED, "common_flags"]:
-                def_val = self.get_default("crossdev_env", attr, default=default)
-            else:  # Allow using the standard env if crossdev_use_env is set
+                def_val = self.get_default("crossdev_env", attr) or default
+            # Othwerise, use the def_val derived from the standard env
+            else:
                 def_val = self.get_default("crossdev_env", attr, default=def_val)
+            # Try to get the environment dict for crossdev
             if env := self.config.get("crossdev_env"):
-                val = env.get(attr) or val if self.crossdev_use_env else None  # Set the crossdev env if it exists
-        return val or def_val
+                # Try to get the value, use the standard evn value if crossdev_use_env is set, otherwise don't set it
+                val = env.get(attr) or val if self.crossdev_use_env else None
+        return val or def_val or default
 
     def inherit_parent_env(self):
         """Inherit environment variables from the parent config, or use the default value"""

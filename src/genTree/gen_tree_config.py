@@ -37,7 +37,7 @@ for config in [
                     DEFAULT_CONFIG[key] = value
 
 
-DEF_ARGS = ["seed", "clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
+DEF_ARGS = ["seed", "profile", "crossdev_profile", "clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format"]
@@ -67,6 +67,7 @@ INHERITED_CONFIG = [
     "crossdev_use_env",  # ''
     "rebuild",  # ''
     "profile",  # ''
+    "crossdev_profile",  # ''
     "profile_repo",  # ''
 ]
 

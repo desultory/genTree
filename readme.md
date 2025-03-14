@@ -300,6 +300,8 @@ Configuration overrides to be mounted over `/etc/portage` can be specified using
 * `config_overlay` (str) - The name of the configuration overlay to use (from `config_dir`).
 * `inherit_config` (false) - Inherit a config root from the seed.
 
+> `config_dir` is typically under `conf_root`/config, but can be manually set to an absolute path using `_config_dir`.
+
 ### Build overlay
 
 The build are performed in overlays which are mounted over `/builds` in the namespace, and under `conf_root`/builds on the host.

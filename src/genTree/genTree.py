@@ -5,7 +5,7 @@ from subprocess import CalledProcessError, run
 from tarfile import ReadError, TarFile
 
 from zenlib.logging import loggify
-from zenlib.util import colorize
+from zenlib.util import colorize as c_
 
 from .filters import WhiteoutError
 from .gen_tree_config import GenTreeConfig
@@ -30,7 +30,7 @@ def preserve_world(func):
         new_world = get_world_set(config)
         for entry in world:
             if entry not in new_world:
-                config.logger.info(f"[{colorize(config.name, "blue")}] Adding {colorize(entry, "green")} to world file")
+                config.logger.info(f"[{c_(config.name, "blue")}] Adding {c_(entry, "green")} to world file")
                 with open(config.overlay_root / "var/lib/portage/world", "a") as world:
                     world.write(entry + "\n")
         return ret
@@ -49,8 +49,8 @@ class GenTree(MountMixins, OCIMixins):
             for base in bases:
                 base.logger.info(
                     " +.+ [%s] Building base: %s",
-                    colorize(config.file_display_name, "cyan"),
-                    colorize(base.name, "blue", bold=True),
+                    c_(config.file_display_name, "cyan"),
+                    c_(base.name, "blue", bold=True),
                 )
                 self.build(config=base)
 
@@ -102,8 +102,8 @@ class GenTree(MountMixins, OCIMixins):
 
         self.logger.info(
             " [E] [%s] %s %s",
-            colorize(config.name, "green", bright=True, bold=True),
-            colorize(emerge_cmd, "magenta", bright=True, bold=True) if emerge_cmd != "emerge" else "emerge",
+            c_(config.name, "green", bright=True, bold=True),
+            c_(emerge_cmd, "magenta", bright=True, bold=True) if emerge_cmd != "emerge" else "emerge",
             " ".join(map(str, args)),
         )
         # Open the emerge log, get the current last line so it can be seeked past in the event of build failures
@@ -124,11 +124,11 @@ class GenTree(MountMixins, OCIMixins):
     def perform_emerge(self, config):
         """Performs the emerge command for the current config"""
         if not getattr(config, "packages", None):
-            return config.logger.debug("[%s] No packages to build", colorize(config.config_file, "blue", bold=True))
+            return config.logger.debug("[%s] No packages to build", c_(config.config_file, "blue", bold=True))
 
         packages = config.packages or []
         config.logger.info(
-            " [E] [%s] Emerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "green")
+            " [E] [%s] Emerging packages: %s", c_(config.name, "blue"), c_(", ".join(packages), "green")
         )
         self.run_emerge(config.emerge_flags, config=config)
 
@@ -142,7 +142,7 @@ class GenTree(MountMixins, OCIMixins):
 
         packages = config.unmerge or []
         config.logger.info(
-            " [U] [%s] Unmerging packages: %s", colorize(config.name, "blue"), colorize(", ".join(packages), "red")
+            " [U] [%s] Unmerging packages: %s", c_(config.name, "blue"), c_(", ".join(packages), "red")
         )
         self.run_emerge(["--root", config.overlay_root, "--unmerge", *packages], config=config)
 
@@ -155,8 +155,8 @@ class GenTree(MountMixins, OCIMixins):
         if config.layer_archive.exists() and not config.rebuild:
             return config.logger.warning(
                 " ... [%s] Skipping build, layer archive exists: %s",
-                colorize(config.name, "blue"),
-                colorize(config.layer_archive, "cyan"),
+                c_(config.name, "blue"),
+                c_(config.layer_archive, "cyan"),
             )
 
         self.deploy_bases(config=config)
@@ -172,8 +172,8 @@ class GenTree(MountMixins, OCIMixins):
         The file is named config.buildname which is {config.name}-{config.buildname}"""
         config.logger.info(
             " >:- [%s] Packing tree: %s",
-            colorize(config.name, "blue", bold=True),
-            colorize(config.layer_archive, "magenta"),
+            c_(config.name, "blue", bold=True),
+            c_(config.layer_archive, "magenta"),
         )
 
         with TarFile.open(config.layer_archive, "w") as tar:
@@ -193,9 +193,9 @@ class GenTree(MountMixins, OCIMixins):
 
         self.logger.info(
             "[%s] Created archive: %s (%s)",
-            colorize(config.name, "blue", bold=True),
-            colorize(config.layer_archive, "green", bold=True),
-            colorize("{:.2f} MB".format(config.layer_archive.stat().st_size / 2**20), "green", bright=True),
+            c_(config.name, "blue", bold=True),
+            c_(config.layer_archive, "green", bold=True),
+            c_("{:.2f} MB".format(config.layer_archive.stat().st_size / 2**20), "green", bright=True),
         )
 
     def pack_all(self, config):
@@ -203,8 +203,8 @@ class GenTree(MountMixins, OCIMixins):
         If refilter is True, refilters the archive after applying whiteouts"""
         config.logger.info(
             " V:V [%s] Packing all layers into: %s",
-            colorize(config.name, "blue", bold=True),
-            colorize(config.output_archive, "green", bright=True),
+            c_(config.name, "blue", bold=True),
+            c_(config.output_archive, "green", bright=True),
         )
 
         def re_add(tar, file, base):
@@ -216,7 +216,7 @@ class GenTree(MountMixins, OCIMixins):
         bases = self.deploy_bases(config=config, pretend=True)
         bases.append(config.layer_archive)
         self.logger.info(
-            " #%%- [%s] Packing bases: %s", colorize(config.name, "blue"), colorize(", ".join(map(str, bases)), "cyan")
+            " #%%- [%s] Packing bases: %s", c_(config.name, "blue"), c_(", ".join(map(str, bases)), "cyan")
         )
         pre_tar = config.output_archive.with_suffix(".pre.tar")
         with TarFile.open(pre_tar, "w") as tar:
@@ -253,11 +253,11 @@ class GenTree(MountMixins, OCIMixins):
             pre_tar.unlink()
 
         if config.refilter:
-            size = colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green")
+            size = c_("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green")
             self.logger.info(
                 " ~%%> [%s] Refiltering archive: %s (%s)",
-                colorize(config.name, "blue"),
-                colorize(config.output_archive, "yellow"),
+                c_(config.name, "blue"),
+                c_(config.output_archive, "yellow"),
                 size,
             )
             config.output_archive.rename(pre_tar)  # Reuse the name
@@ -274,16 +274,16 @@ class GenTree(MountMixins, OCIMixins):
 
         self.logger.info(
             "[%s] Created final archive: %s (%s)",
-            colorize(config.name, "blue", bold=True),
-            colorize(config.output_archive, "green", bold=True),
-            colorize("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green", bright=True),
+            c_(config.name, "blue", bold=True),
+            c_(config.output_archive, "green", bold=True),
+            c_("{:.2f} MB".format(config.output_archive.stat().st_size / 2**20), "green", bright=True),
         )
 
     def init_namespace(self):
         """Initializes the namespace for the current config
         If clean_seed is True, cleans the seed overlay upper and work dirs
         """
-        self.logger.info("[%s] Initializing namespace", colorize(self.config.name, "blue"))
+        self.logger.info("[%s] Initializing namespace", c_(self.config.name, "blue"))
 
         self.mount_seed_overlay()  # Mount the seed overlay, if no_seed_overlay is False (default)
         self.mount_system_dirs()  # Mount system dirs, such as /sys, /proc, /dev
@@ -293,14 +293,14 @@ class GenTree(MountMixins, OCIMixins):
         self.bind_mount(self.config.distfile_dir, self.config.sysroot / "var/cache/distfiles", readonly=False)
         self.bind_mount(self.config.build_dir, self.config.build_mount, recursive=True, readonly=False)
         self.bind_mount(self.config.config_dir, self.config.config_mount, recursive=True, readonly=False)
-        self.logger.info(" -/~ Chrooting into: %s", colorize(self.config.sysroot, "red"))
+        self.logger.info(" -/~ Chrooting into: %s", c_(self.config.sysroot, "red"))
         chroot(self.config.sysroot)
         chdir("/")
 
     def execute(self, args):
         """Runs a command in the namespace environment"""
         self.init_namespace()
-        self.logger.info(" ### Running command: %s", colorize(args, "green"))
+        self.logger.info(" ### Running command: %s", c_(args, "green"))
         run(args)
 
     def update_seed(self):
@@ -308,7 +308,7 @@ class GenTree(MountMixins, OCIMixins):
         self.config.clean_seed = True  # Clean the seed upper/work dirs
         self.config.no_seed_overlay = True  # Don't use an overlay, work on the seed
         self.init_namespace()
-        self.logger.info(" >>> Updating seed: %s", colorize(self.config.seed_update_args, "green"))
+        self.logger.info(" >>> Updating seed: %s", c_(self.config.seed_update_args, "green"))
         self.run_emerge(split(self.config.seed_update_args))
         self.run_emerge(["--depclean"])  # Depclean after world update
 
@@ -353,14 +353,14 @@ class GenTree(MountMixins, OCIMixins):
         """Builds the tree in a namespaced chroot environment.
         Packs the resulting tree into {self.config.output_file} or {self.config.output_archive}."""
         self.init_namespace()
-        self.logger.info(" +++ Building tree for: %s", colorize(self.config.name, "blue", bold=True, bright=True))
+        self.logger.info(" +++ Building tree for: %s", c_(self.config.name, "blue", bold=True, bright=True))
         self.build(config=self.config)
         self.pack_all(config=self.config)  # Pack the entire tree
 
     def build_package(self, package):
         """Builds a single package based on the current config"""
         self.init_namespace()
-        self.logger.info(" +++ Building package: %s", colorize(package, "green", bold=True))
+        self.logger.info(" +++ Building package: %s", c_(package, "green", bold=True))
         self.run_emerge(
             ["--oneshot", "--autounmask=y", "--autounmask-continue=y", "--usepkg=y", "--jobs=8", "--noreplace", package]
         )

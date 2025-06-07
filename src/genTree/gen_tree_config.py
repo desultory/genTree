@@ -37,7 +37,15 @@ for config in [
                     DEFAULT_CONFIG[key] = value
 
 
-DEF_ARGS = ["seed", "profile", "crossdev_profile", "clean_filter_options", "tar_filter_options", "emerge_args", "emerge_bools"]
+DEF_ARGS = ["seed",
+            "profile",
+            "crossdev_profile",
+            "clean_filter_options",
+            "tar_filter_options",
+            "emerge_args",
+            "emerge_bools",
+            "seed_update_args"]
+
 CPU_FLAG_VARS = [f"cpu_flags_{arch}" for arch in ["x86", "arm", "ppc"]]
 COMMON_FLAGS = ["cflags", "cxxflags", "fcflags", "fflags"]  # The variable common flags should append to
 ENV_VAR_INHERITED = [*COMMON_FLAGS, *CPU_FLAG_VARS, "binpkg_format"]
@@ -336,7 +344,7 @@ class GenTreeConfig:
             environ["PORTAGE_CONFIGROOT"] = old_root
         return profles.stdout.decode()
 
-    def get_default(self, attr, *subattrs, default=None):
+    def get_default(self, attr, *subattrs, default=None, no_override=False):
         """Gets defaults set in the DEFAULT_CONFIG.
         Prioritze config from:
             defualt.seed.build_tag.attr
@@ -344,9 +352,17 @@ class GenTreeConfig:
             default.attr
         Additioanal args are used to get sub-elements in dictionaries
         A default arg, used when no value was found, can be set with the 'default' kwarg
+        If no_override is set, returns the current value if set, not changing it
         """
         if attr in NO_DEFAULT_LOOKUP:
             return self.logger.log(5, "No default lookup for attribute: %s", attr)
+
+        if no_override:
+            current_val = getattr(self, attr)
+            if current_val not in [None, "", [], {}]:
+                self.logger.debug(f"<{self.seed}>[{attr}] Attribute is set and no_override is enabled, using current value: {current_val}")
+                return current_val
+
         seed = self.seed
         build_tag = self.build_tag
         conf_tag_str = f"{seed} ({build_tag})" if build_tag else seed
@@ -392,13 +408,16 @@ class GenTreeConfig:
             return super().__getattribute__(attr)
 
         val = super().__getattribute__(attr)
-        if val is None and (config := super().__getattribute__("config")):
-            if attr in config:
-                self.logger.debug("[%s] Setting attribute from config: %s", attr, config[attr])
-                super().__setattr__(attr, deepcopy(config[attr]))
-                val = super().__getattribute__(attr)
+        if val is None:  # Try to use the config
+            if config := super().__getattribute__("config"):
+                if attr in config:
+                    self.logger.debug("[%s] Setting attribute from config: %s", attr, config[attr])
+                    super().__setattr__(attr, deepcopy(config[attr]))
+                    val = super().__getattribute__(attr)
+                else:
+                    self.logger.log(5, "No config value found for: %s", attr)
             else:
-                self.logger.log(5, "No config value found for : %s", attr)
+                self.logger.log(5, "Cannot get attribute from config, config is empty: %s", attr)
 
         return val
 
@@ -453,7 +472,7 @@ class GenTreeConfig:
         otherwise sets the value from the config, using the default if no value is set.
         If no default is set, set the value to an empty string.
         """
-        if default := self.get_default(argname):
+        if default := self.get_default(argname, no_override=True):
             default = deepcopy(default)
             if isinstance(default, dict):
                 setattr(self, argname, default | self.config.get(argname, {}))
